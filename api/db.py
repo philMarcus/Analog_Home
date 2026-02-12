@@ -6,13 +6,30 @@ load_dotenv()
 
 DB_PATH = os.getenv("ANALOG_DB_PATH", "../data/analog.duckdb")
 
-def connect():
-    # DuckDB uses a file; ensure parent folder exists
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    return duckdb.connect(DB_PATH)
+# Keep a single connection per API process to avoid Windows file-lock churn.
+_CON = None
 
-def init_db():
+
+def connect() -> duckdb.DuckDBPyConnection:
+    global _CON
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    if _CON is None:
+        _CON = duckdb.connect(DB_PATH)
+    return _CON
+
+
+def close() -> None:
+    global _CON
+    if _CON is not None:
+        try:
+            _CON.close()
+        finally:
+            _CON = None
+
+
+def init_db() -> None:
     con = connect()
+
     # Two tables only: controls + artifacts
     con.execute("""
     CREATE TABLE IF NOT EXISTS controls (
@@ -42,5 +59,3 @@ def init_db():
       SELECT 1, 0.7, 'origin', 0, 0, 0
       WHERE NOT EXISTS (SELECT 1 FROM controls WHERE id=1);
     """)
-
-    con.close()

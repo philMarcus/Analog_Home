@@ -47,9 +47,17 @@ def init_db() -> None:
     CREATE TABLE IF NOT EXISTS artifacts (
       id BIGINT PRIMARY KEY,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      brain VARCHAR,
+      cycle INTEGER,
+      artifact_type VARCHAR,
       title VARCHAR,
       body_markdown VARCHAR,
-      monologue_public VARCHAR
+      monologue_public VARCHAR,
+      channel VARCHAR,
+      source_platform VARCHAR,
+      source_id VARCHAR,
+      source_parent_id VARCHAR,
+      source_url VARCHAR
     );
     """)
 

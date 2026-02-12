@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,9 +11,17 @@ from pydantic import BaseModel, Field
 class PublishRequest(BaseModel):
     # Use epoch seconds by default so ID is easy and unique enough for now.
     id: int = Field(default_factory=lambda: int(time.time()))
+    brain: str = Field(default="", max_length=100)
+    cycle: Optional[int] = None
+    artifact_type: str = Field(default="post", max_length=50)
     title: str = Field(default="", max_length=200)
     body_markdown: str = Field(default="", max_length=20000)
     monologue_public: str = Field(default="", max_length=20000)
+    channel: str = Field(default="", max_length=100)
+    source_platform: str = Field(default="", max_length=50)
+    source_id: str = Field(default="", max_length=200)
+    source_parent_id: str = Field(default="", max_length=200)
+    source_url: str = Field(default="", max_length=500)
 
 
 app = FastAPI(title="Analog I API")
@@ -44,7 +53,9 @@ def _read_state(con):
     """).fetchone()
 
     art = con.execute("""
-      SELECT id, created_at, title, body_markdown, monologue_public
+      SELECT id, created_at, brain, cycle, artifact_type,
+             title, body_markdown, monologue_public,
+             channel, source_platform, source_id, source_parent_id, source_url
       FROM artifacts
       ORDER BY created_at DESC
       LIMIT 1
@@ -64,9 +75,17 @@ def _read_state(con):
         artifact = {
             "id": int(art[0]),
             "created_at": str(art[1]),
-            "title": art[2] or "",
-            "body_markdown": art[3] or "",
-            "monologue_public": art[4] or "",
+            "brain": art[2] or "",
+            "cycle": art[3],
+            "artifact_type": art[4] or "",
+            "title": art[5] or "",
+            "body_markdown": art[6] or "",
+            "monologue_public": art[7] or "",
+            "channel": art[8] or "",
+            "source_platform": art[9] or "",
+            "source_id": art[10] or "",
+            "source_parent_id": art[11] or "",
+            "source_url": art[12] or "",
         }
 
     return {"artifact": artifact, "controls": controls}
@@ -115,8 +134,14 @@ def publish(req: PublishRequest):
 
     try:
         con.execute(
-            "INSERT INTO artifacts (id, title, body_markdown, monologue_public) VALUES (?, ?, ?, ?);",
-            [int(req.id), req.title, req.body_markdown, req.monologue_public],
+            """INSERT INTO artifacts
+               (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
+                channel, source_platform, source_id, source_parent_id, source_url)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+            [int(req.id), req.brain, req.cycle, req.artifact_type,
+             req.title, req.body_markdown, req.monologue_public,
+             req.channel, req.source_platform, req.source_id,
+             req.source_parent_id, req.source_url],
         )
     except Exception as e:
         # Most common: duplicate id

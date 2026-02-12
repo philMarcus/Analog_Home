@@ -12,9 +12,17 @@ class VoteRequest(BaseModel):
 class ArtifactOut(BaseModel):
     id: int
     created_at: str
+    brain: str
+    cycle: Optional[int]
+    artifact_type: str
     title: str
     body_markdown: str
     monologue_public: str
+    channel: str
+    source_platform: str
+    source_id: str
+    source_parent_id: str
+    source_url: str
 
 class ControlsOut(BaseModel):
     temperature: float

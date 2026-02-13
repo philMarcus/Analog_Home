@@ -2,42 +2,65 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+type Artifact = {
+  id: number;
+  created_at: string;
+  brain: string;
+  cycle: number | null;
+  artifact_type: string;
+  title: string;
+  body_markdown: string;
+  monologue_public: string;
+  channel: string;
+  source_platform: string;
+  source_id: string;
+  source_parent_id: string;
+  source_url: string;
+};
+
+type Controls = {
+  temperature: number;
+  focus_keyword: string;
+  vote_explore: number;
+  vote_exploit: number;
+  vote_reflect: number;
+  updated_at: string;
+};
+
 type State = {
-  artifact: null | {
-    id: number;
-    created_at: string;
-    title: string;
-    body_markdown: string;
-    monologue_public: string;
-  };
-  controls: {
-    temperature: number;
-    focus_keyword: string;
-    vote_explore: number;
-    vote_exploit: number;
-    vote_reflect: number;
-    updated_at: string;
-  };
+  artifact: Artifact | null;
+  controls: Controls;
 };
 
 export default function Home() {
   const API = useMemo(() => process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000", []);
-  const [state, setState] = useState<State | null>(null);
+  const [controls, setControls] = useState<Controls | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [expanded, setExpanded] = useState<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
   const [focus, setFocus] = useState<string>("origin");
   const [loading, setLoading] = useState<boolean>(false);
 
-  async function fetchState() {
-    const res = await fetch(`${API}/state`);
-    const data = (await res.json()) as State;
-    setState(data);
-    setTemp(data.controls.temperature);
-    setFocus(data.controls.focus_keyword);
+  async function fetchData() {
+    const [stateRes, artsRes] = await Promise.all([
+      fetch(`${API}/state`),
+      fetch(`${API}/artifacts?limit=5`),
+    ]);
+    const stateData = (await stateRes.json()) as State;
+    const artsData = (await artsRes.json()) as Artifact[];
+    setControls(stateData.controls);
+    setTemp(stateData.controls.temperature);
+    setFocus(stateData.controls.focus_keyword);
+    setArtifacts(artsData);
+    // Auto-expand the latest artifact if nothing is expanded
+    if (expanded === null && artsData.length > 0) {
+      setExpanded(artsData[0].id);
+    }
   }
 
   useEffect(() => {
-    fetchState();
-    const t = setInterval(fetchState, 8000);
+    fetchData();
+    const t = setInterval(fetchData, 8000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -51,9 +74,18 @@ export default function Home() {
         body: JSON.stringify({ choice, temperature: temp, focus_keyword: focus }),
       });
       const data = (await res.json()) as State;
-      setState(data);
+      setControls(data.controls);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function formatTime(iso: string) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString();
+    } catch {
+      return iso;
     }
   }
 
@@ -65,30 +97,78 @@ export default function Home() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
-        <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
-          <h2 style={{ fontSize: 18, marginTop: 0 }}>Latest Artifact</h2>
-          {!state?.artifact ? (
-            <div style={{ opacity: 0.7 }}>
-              No artifact yet. Run <code>python push_fake_cycle.py</code> in the API folder.
+        <section>
+          <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 12 }}>Recent Artifacts</h2>
+          {artifacts.length === 0 ? (
+            <div style={{ opacity: 0.7, border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+              No artifacts yet.
             </div>
           ) : (
-            <>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>{state.artifact.title}</div>
-              <div style={{ opacity: 0.7, fontSize: 13, marginBottom: 12 }}>
-                {state.artifact.created_at}
-              </div>
-              <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{state.artifact.body_markdown}</pre>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {artifacts.map((art) => {
+                const isExpanded = expanded === art.id;
+                return (
+                  <div
+                    key={art.id}
+                    style={{
+                      border: isExpanded ? "2px solid #4a90d9" : "1px solid #ddd",
+                      borderRadius: 12,
+                      padding: 16,
+                      cursor: "pointer",
+                      transition: "border-color 0.15s",
+                    }}
+                    onClick={() => setExpanded(isExpanded ? null : art.id)}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <div style={{ fontWeight: 600 }}>
+                        {art.title || `[${art.artifact_type}]`}
+                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.5, whiteSpace: "nowrap", marginLeft: 12 }}>
+                        cycle {art.cycle} &middot; {formatTime(art.created_at)}
+                      </div>
+                    </div>
 
-              <hr style={{ margin: "16px 0" }} />
-              <h3 style={{ fontSize: 14, margin: "0 0 8px 0", opacity: 0.8 }}>Internal Monologue (public)</h3>
-              <pre style={{ whiteSpace: "pre-wrap", margin: 0, opacity: 0.9 }}>
-                {state.artifact.monologue_public}
-              </pre>
-            </>
+                    {art.channel && (
+                      <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
+                        {art.source_platform}/{art.channel}
+                      </div>
+                    )}
+
+                    {isExpanded && (
+                      <div style={{ marginTop: 12 }}>
+                        <pre style={{ whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.5 }}>
+                          {art.body_markdown}
+                        </pre>
+
+                        {art.monologue_public && (
+                          <>
+                            <hr style={{ margin: "16px 0", opacity: 0.3 }} />
+                            <h3 style={{ fontSize: 13, margin: "0 0 8px 0", opacity: 0.6 }}>
+                              Internal Monologue
+                            </h3>
+                            <pre style={{ whiteSpace: "pre-wrap", margin: 0, opacity: 0.8, fontSize: 13, lineHeight: 1.5 }}>
+                              {art.monologue_public}
+                            </pre>
+                          </>
+                        )}
+
+                        {art.source_url && (
+                          <div style={{ marginTop: 12, fontSize: 12 }}>
+                            <a href={art.source_url} target="_blank" rel="noopener noreferrer" style={{ color: "#4a90d9" }}>
+                              View source &rarr;
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </section>
 
-        <aside style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+        <aside style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, alignSelf: "start" }}>
           <h2 style={{ fontSize: 18, marginTop: 0 }}>Controls</h2>
 
           <div style={{ marginBottom: 12 }}>
@@ -116,18 +196,18 @@ export default function Home() {
 
           <div style={{ display: "grid", gap: 8 }}>
             <button disabled={loading} onClick={() => vote("explore")} style={btnStyle}>
-              Explore ({state?.controls.vote_explore ?? 0})
+              Explore ({controls?.vote_explore ?? 0})
             </button>
             <button disabled={loading} onClick={() => vote("exploit")} style={btnStyle}>
-              Exploit ({state?.controls.vote_exploit ?? 0})
+              Exploit ({controls?.vote_exploit ?? 0})
             </button>
             <button disabled={loading} onClick={() => vote("reflect")} style={btnStyle}>
-              Reflect ({state?.controls.vote_reflect ?? 0})
+              Reflect ({controls?.vote_reflect ?? 0})
             </button>
           </div>
 
           <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-            Last updated: {state?.controls.updated_at ?? "—"}
+            Last updated: {controls?.updated_at ?? "—"}
           </div>
         </aside>
       </div>

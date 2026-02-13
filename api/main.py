@@ -1,10 +1,10 @@
 import time
-from typing import Optional
-from fastapi import FastAPI, HTTPException
+from typing import List, Optional
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import init_db, connect, close
-from models import VoteRequest, StateOut
+from models import ArtifactOut, VoteRequest, StateOut
 from pydantic import BaseModel, Field
 
 
@@ -95,6 +95,38 @@ def _read_state(con):
 def get_state():
     con = connect()
     return _read_state(con)
+
+
+def _art_row_to_dict(row) -> dict:
+    return {
+        "id": int(row[0]),
+        "created_at": str(row[1]),
+        "brain": row[2] or "",
+        "cycle": row[3],
+        "artifact_type": row[4] or "",
+        "title": row[5] or "",
+        "body_markdown": row[6] or "",
+        "monologue_public": row[7] or "",
+        "channel": row[8] or "",
+        "source_platform": row[9] or "",
+        "source_id": row[10] or "",
+        "source_parent_id": row[11] or "",
+        "source_url": row[12] or "",
+    }
+
+
+@app.get("/artifacts", response_model=List[ArtifactOut])
+def get_artifacts(limit: int = Query(default=5, ge=1, le=50)):
+    con = connect()
+    rows = con.execute("""
+      SELECT id, created_at, brain, cycle, artifact_type,
+             title, body_markdown, monologue_public,
+             channel, source_platform, source_id, source_parent_id, source_url
+      FROM artifacts
+      ORDER BY created_at DESC
+      LIMIT ?
+    """, [limit]).fetchall()
+    return [_art_row_to_dict(r) for r in rows]
 
 
 @app.post("/vote", response_model=StateOut)

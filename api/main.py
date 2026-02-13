@@ -3,8 +3,8 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from db import init_db, connect, close
-from models import ArtifactOut, VoteRequest, StateOut
+from db import init_db, connect, close, effective_temperature, MAX_SEEDS_RETURNED
+from models import ArtifactOut, VoteRequest, SeedRequest, SetTrajectoryRequest, StateOut
 from pydantic import BaseModel, Field
 
 
@@ -51,7 +51,8 @@ def _shutdown():
 
 def _read_state(con):
     ctrl = con.execute("""
-      SELECT temperature, focus_keyword, vote_explore, vote_exploit, vote_reflect, updated_at
+      SELECT temperature, temp_set_at, vote_1, vote_2, vote_3,
+             vote_label_1, vote_label_2, vote_label_3, updated_at
       FROM controls WHERE id=1
     """).fetchone()
 
@@ -64,13 +65,20 @@ def _read_state(con):
       LIMIT 1
     """).fetchone()
 
+    seeds_rows = con.execute("""
+      SELECT id, text, created_at FROM seeds
+      ORDER BY created_at DESC LIMIT ?
+    """, [MAX_SEEDS_RETURNED]).fetchall()
+
     controls = {
-        "temperature": float(ctrl[0]),
-        "focus_keyword": ctrl[1],
-        "vote_explore": int(ctrl[2]),
-        "vote_exploit": int(ctrl[3]),
-        "vote_reflect": int(ctrl[4]),
-        "updated_at": str(ctrl[5]),
+        "temperature": effective_temperature(float(ctrl[0]), ctrl[1]),
+        "vote_1": int(ctrl[2]),
+        "vote_2": int(ctrl[3]),
+        "vote_3": int(ctrl[4]),
+        "vote_label_1": ctrl[5] or "",
+        "vote_label_2": ctrl[6] or "",
+        "vote_label_3": ctrl[7] or "",
+        "updated_at": str(ctrl[8]),
     }
 
     artifact = None
@@ -91,7 +99,9 @@ def _read_state(con):
             "source_url": art[12] or "",
         }
 
-    return {"artifact": artifact, "controls": controls}
+    seeds = [{"id": int(r[0]), "text": r[1] or "", "created_at": str(r[2])} for r in seeds_rows]
+
+    return {"artifact": artifact, "controls": controls, "seeds": seeds}
 
 
 @app.get("/state", response_model=StateOut)
@@ -135,36 +145,74 @@ def get_artifacts(limit: int = Query(default=5, ge=1, le=50)):
 @app.post("/vote", response_model=StateOut)
 def post_vote(req: VoteRequest):
     con = connect()
-
-    if req.choice == "explore":
-        con.execute("UPDATE controls SET vote_explore = vote_explore + 1, updated_at = CURRENT_TIMESTAMP WHERE id=1;")
-    elif req.choice == "exploit":
-        con.execute("UPDATE controls SET vote_exploit = vote_exploit + 1, updated_at = CURRENT_TIMESTAMP WHERE id=1;")
-    else:
-        con.execute("UPDATE controls SET vote_reflect = vote_reflect + 1, updated_at = CURRENT_TIMESTAMP WHERE id=1;")
+    col = f"vote_{req.choice}"
+    con.execute(
+        f"UPDATE controls SET {col} = {col} + 1, updated_at = CURRENT_TIMESTAMP WHERE id=1;"
+    )
 
     if req.temperature is not None:
         con.execute(
-            "UPDATE controls SET temperature = ?, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
+            "UPDATE controls SET temperature = ?, temp_set_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
             [float(req.temperature)]
-        )
-
-    if req.focus_keyword is not None:
-        fk = req.focus_keyword.strip().lower()[:40]
-        con.execute(
-            "UPDATE controls SET focus_keyword = ?, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
-            [fk]
         )
 
     return _read_state(con)
 
 
+@app.post("/temperature", response_model=StateOut)
+def post_temperature(req: dict):
+    """Set temperature directly (without voting)."""
+    t = req.get("temperature")
+    if t is None:
+        raise HTTPException(status_code=400, detail="temperature required")
+    t = max(0.0, min(2.0, float(t)))
+    con = connect()
+    con.execute(
+        "UPDATE controls SET temperature = ?, temp_set_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
+        [t]
+    )
+    return _read_state(con)
+
+
+@app.post("/seed", response_model=StateOut)
+def post_seed(req: SeedRequest):
+    con = connect()
+    text = req.text.strip()[:200]
+    if not text:
+        raise HTTPException(status_code=400, detail="Seed text cannot be empty")
+    next_id = con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM seeds").fetchone()[0]
+    con.execute("INSERT INTO seeds (id, text) VALUES (?, ?);", [next_id, text])
+    return _read_state(con)
+
+
+@app.post("/consume-seeds")
+def consume_seeds(req: dict):
+    """Delete seeds by ID list. Called by agent after reading them."""
+    ids = req.get("ids", [])
+    if not ids:
+        return {"deleted": 0}
+    con = connect()
+    placeholders = ",".join("?" for _ in ids)
+    con.execute(f"DELETE FROM seeds WHERE id IN ({placeholders});", [int(i) for i in ids])
+    return {"deleted": len(ids)}
+
+
+@app.post("/set-trajectory", response_model=StateOut)
+def set_trajectory(req: SetTrajectoryRequest):
+    con = connect()
+    con.execute("""
+      UPDATE controls SET
+        vote_1 = 0, vote_2 = 0, vote_3 = 0,
+        vote_label_1 = ?, vote_label_2 = ?, vote_label_3 = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id=1;
+    """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40]])
+    return _read_state(con)
+
+
 @app.post("/publish", response_model=StateOut)
 def publish(req: PublishRequest):
-    """
-    Publish a new artifact (title/body/monologue) via HTTP.
-    This lets your agent (or push_fake_cycle) write through the API so only the API touches DuckDB.
-    """
+    """Publish a new artifact via HTTP. Only the API touches DuckDB."""
     con = connect()
 
     try:
@@ -179,7 +227,6 @@ def publish(req: PublishRequest):
              req.source_parent_id, req.source_url],
         )
     except Exception as e:
-        # Most common: duplicate id
         raise HTTPException(status_code=400, detail=str(e))
 
     return _read_state(con)

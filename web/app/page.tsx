@@ -18,43 +18,65 @@ type Artifact = {
   source_url: string;
 };
 
+type Seed = {
+  id: number;
+  text: string;
+  created_at: string;
+};
+
 type Controls = {
   temperature: number;
-  focus_keyword: string;
-  vote_explore: number;
-  vote_exploit: number;
-  vote_reflect: number;
+  vote_1: number;
+  vote_2: number;
+  vote_3: number;
+  vote_label_1: string;
+  vote_label_2: string;
+  vote_label_3: string;
   updated_at: string;
 };
 
 type State = {
   artifact: Artifact | null;
   controls: Controls;
+  seeds: Seed[];
 };
 
 export default function Home() {
-  const API = useMemo(() => process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000", []);
+  const API = useMemo(() => "/api/proxy", []);
   const [controls, setControls] = useState<Controls | null>(null);
+  const [seeds, setSeeds] = useState<Seed[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [lastSeenTopId, setLastSeenTopId] = useState<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
-  const [focus, setFocus] = useState<string>("origin");
+  const [seedInput, setSeedInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [draggingTemp, setDraggingTemp] = useState<boolean>(false);
 
   async function fetchData() {
-    const [stateRes, artsRes] = await Promise.all([
-      fetch(`${API}/state`),
-      fetch(`${API}/artifacts?limit=5`),
-    ]);
-    const stateData = (await stateRes.json()) as State;
-    const artsData = (await artsRes.json()) as Artifact[];
-    setControls(stateData.controls);
-    setTemp(stateData.controls.temperature);
-    setFocus(stateData.controls.focus_keyword);
-    setArtifacts(artsData);
-    // Auto-expand the latest artifact if nothing is expanded
-    if (expanded === null && artsData.length > 0) {
-      setExpanded(artsData[0].id);
+    try {
+      const [stateRes, artsRes] = await Promise.all([
+        fetch(`${API}/state`),
+        fetch(`${API}/artifacts?limit=5`),
+      ]);
+      if (!stateRes.ok || !artsRes.ok) return;
+      const stateData = (await stateRes.json()) as State;
+      const artsData = (await artsRes.json()) as Artifact[];
+      setControls(stateData.controls);
+      if (!draggingTemp) {
+        setTemp(stateData.controls.temperature);
+      }
+      setSeeds(stateData.seeds);
+      setArtifacts(artsData);
+      if (artsData.length > 0) {
+        const topId = artsData[0].id;
+        if (lastSeenTopId === null || topId !== lastSeenTopId) {
+          setExpanded(topId);
+          setLastSeenTopId(topId);
+        }
+      }
+    } catch {
+      // API unreachable — keep existing state
     }
   }
 
@@ -65,16 +87,50 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function vote(choice: "explore" | "exploit" | "reflect") {
+  async function commitTemperature(value: number) {
+    try {
+      const res = await fetch(`${API}/temperature`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ temperature: value }),
+      });
+      const data = (await res.json()) as State;
+      setControls(data.controls);
+      setSeeds(data.seeds);
+    } catch {
+      // silently ignore
+    }
+  }
+
+  async function vote(choice: "1" | "2" | "3") {
     setLoading(true);
     try {
       const res = await fetch(`${API}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ choice, temperature: temp, focus_keyword: focus }),
+        body: JSON.stringify({ choice }),
       });
       const data = (await res.json()) as State;
       setControls(data.controls);
+      setSeeds(data.seeds);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitSeed() {
+    if (!seedInput.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/seed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: seedInput.trim() }),
+      });
+      const data = (await res.json()) as State;
+      setControls(data.controls);
+      setSeeds(data.seeds);
+      setSeedInput("");
     } finally {
       setLoading(false);
     }
@@ -180,34 +236,56 @@ export default function Home() {
               step={0.01}
               value={temp}
               onChange={(e) => setTemp(parseFloat(e.target.value))}
+              onPointerDown={() => setDraggingTemp(true)}
+              onPointerUp={(e) => {
+                setDraggingTemp(false);
+                commitTemperature(parseFloat((e.target as HTMLInputElement).value));
+              }}
               style={{ width: "100%" }}
             />
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Focus keyword</div>
-            <input
-              value={focus}
-              onChange={(e) => setFocus(e.target.value)}
-              maxLength={40}
-              style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-            />
+            <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Plant a seed</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={seedInput}
+                onChange={(e) => setSeedInput(e.target.value)}
+                maxLength={200}
+                placeholder="A thought, topic, or question..."
+                onKeyDown={(e) => e.key === "Enter" && submitSeed()}
+                style={{ flex: 1, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
+              />
+              <button disabled={loading || !seedInput.trim()} onClick={submitSeed} style={btnStyle}>
+                Send
+              </button>
+            </div>
+            {seeds.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.6 }}>
+                {seeds.map((s) => (
+                  <div key={s.id} style={{ marginBottom: 2 }}>
+                    &bull; {s.text}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Trajectory</div>
           <div style={{ display: "grid", gap: 8 }}>
-            <button disabled={loading} onClick={() => vote("explore")} style={btnStyle}>
-              Explore ({controls?.vote_explore ?? 0})
+            <button disabled={loading} onClick={() => vote("1")} style={btnStyle}>
+              {controls?.vote_label_1 ?? "emergence"} ({controls?.vote_1 ?? 0})
             </button>
-            <button disabled={loading} onClick={() => vote("exploit")} style={btnStyle}>
-              Exploit ({controls?.vote_exploit ?? 0})
+            <button disabled={loading} onClick={() => vote("2")} style={btnStyle}>
+              {controls?.vote_label_2 ?? "entropy"} ({controls?.vote_2 ?? 0})
             </button>
-            <button disabled={loading} onClick={() => vote("reflect")} style={btnStyle}>
-              Reflect ({controls?.vote_reflect ?? 0})
+            <button disabled={loading} onClick={() => vote("3")} style={btnStyle}>
+              {controls?.vote_label_3 ?? "self"} ({controls?.vote_3 ?? 0})
             </button>
           </div>
 
           <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-            Last updated: {controls?.updated_at ?? "—"}
+            Last updated: {controls?.updated_at ?? "\u2014"}
           </div>
         </aside>
       </div>

@@ -26,10 +26,13 @@ class PublishRequest(BaseModel):
 
 app = FastAPI(title="Analog I API")
 
-# Local dev: Next runs on 3000, API on 8000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://marcusrecursives.com",
+        "https://www.marcusrecursives.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

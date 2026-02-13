@@ -1,0 +1,27 @@
+# fly.toml app configuration file generated for analog-home-api on 2026-02-13T08:30:39-05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'analog-home-api'
+primary_region = 'iad'
+
+[build]
+
+[env]
+  ANALOG_DB_PATH = '/data/analog.duckdb'
+
+[[mounts]]
+  source = 'analog_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = '256mb'
+  cpus = 1

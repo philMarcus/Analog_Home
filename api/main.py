@@ -44,6 +44,14 @@ def _startup():
     init_db()
 
 
+@app.get("/healthz")
+def healthz():
+    """Lightweight health check — verifies DuckDB is queryable."""
+    con = connect()
+    con.execute("SELECT 1").fetchone()
+    return {"ok": True}
+
+
 @app.on_event("shutdown")
 def _shutdown():
     close()

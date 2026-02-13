@@ -22,6 +22,13 @@ primary_region = 'iad'
   auto_start_machines = true
   min_machines_running = 0
 
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
+
 [[vm]]
   memory = '256mb'
   cpus = 1

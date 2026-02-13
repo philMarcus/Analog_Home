@@ -67,7 +67,9 @@ export default function Home() {
         setTemp(stateData.controls.temperature);
       }
       setSeeds(stateData.seeds);
-      setArtifacts(artsData);
+      if (artsData.length > 0) {
+        setArtifacts(artsData);
+      }
       if (artsData.length > 0) {
         const topId = artsData[0].id;
         if (lastSeenTopId === null || topId !== lastSeenTopId) {

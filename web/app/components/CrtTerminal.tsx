@@ -15,6 +15,7 @@ function isSystemArtifact(art: Artifact): boolean {
 }
 
 function systemLabel(art: Artifact): string {
+  if (art.artifact_type === "system_run_start") return "RUN START";
   if (art.artifact_type === "system_kernel_update") return "KERNEL SELF-UPDATE";
   if (art.artifact_type === "system_trajectory_update") return "TRAJECTORY CHANGE";
   return "SYSTEM EVENT";

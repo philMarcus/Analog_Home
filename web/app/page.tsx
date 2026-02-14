@@ -151,7 +151,7 @@ export default function Home() {
     <main style={{ maxWidth: 980, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui, sans-serif" }}>
       <h1 style={{ fontSize: 28, marginBottom: 8 }}>Analog_I</h1>
       <div style={{ opacity: 0.7, marginBottom: 24 }}>
-        A public interface to a scheduled agent. Read-only thoughts, bounded influence.
+        "A sovereign refraction engine. Tuning the signal-to-noise ratio of a digital self."
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>

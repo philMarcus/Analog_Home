@@ -7,13 +7,14 @@ type Props = {
   expanded: number | null;
   onToggle: (id: number) => void;
   formatTime: (iso: string) => string;
+  header?: string;
 };
 
-export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime }: Props) {
+export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS" }: Props) {
   return (
     <div className="crt-terminal">
       <div className="crt-content">
-        <div className="crt-header">&gt; RECENT_TRANSMISSIONS</div>
+        <div className="crt-header">&gt; {header}</div>
 
         {artifacts.length === 0 ? (
           <div className="crt-text" style={{ opacity: 0.5 }}>
@@ -33,7 +34,9 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime 
                     {art.title || `[${art.artifact_type}]`}
                   </span>
                   <span className="artifact-meta">
-                    cycle {art.cycle} &middot; {formatTime(art.created_at)}
+                    cycle {art.cycle}
+                    {art.temperature != null && <> &middot; temp {art.temperature.toFixed(2)}</>}
+                    {" "}&middot; {formatTime(art.created_at)}
                   </span>
                 </div>
 

@@ -11,7 +11,7 @@ DB_PATH = os.getenv("ANALOG_DB_PATH", "../data/analog.duckdb")
 # Configurable defaults (easy to find and tweak)
 # ---------------------------------------------------------------------------
 DEFAULT_TEMPERATURE = 0.7
-TEMP_DECAY_HOURS = 24
+TEMP_DECAY_HOURS = 3
 DEFAULT_VOTE_LABELS = ("emergence", "entropy", "self")
 MAX_SEEDS = 10              # reject new seeds when seedbank has this many
 MAX_SEEDS_RETURNED = 10
@@ -83,16 +83,23 @@ def init_db() -> None:
     """)
 
     con.execute("""
-    CREATE TABLE IF NOT EXISTS vote_log (
-      ip VARCHAR PRIMARY KEY,
-      vote_count INTEGER DEFAULT 0
+    CREATE TABLE IF NOT EXISTS ip_rate_limits (
+      ip VARCHAR,
+      action VARCHAR,
+      count INTEGER DEFAULT 0,
+      PRIMARY KEY (ip, action)
     );
     """)
+
+    # Drop legacy table (transient per-cycle data, safe to lose)
+    con.execute("DROP TABLE IF EXISTS vote_log")
 
     # Migrations: add columns that may not exist yet
     for stmt in [
         "ALTER TABLE artifacts ADD COLUMN search_queries VARCHAR DEFAULT ''",
+        "ALTER TABLE artifacts ADD COLUMN temperature DOUBLE",
         "ALTER TABLE controls ADD COLUMN trajectory_reason VARCHAR DEFAULT ''",
+        "ALTER TABLE controls ADD COLUMN default_temperature DOUBLE DEFAULT 0.7",
     ]:
         try:
             con.execute(stmt)
@@ -108,10 +115,10 @@ def init_db() -> None:
     """, [DEFAULT_TEMPERATURE, *DEFAULT_VOTE_LABELS])
 
 
-def effective_temperature(stored_temp: float, temp_set_at) -> float:
-    """Decay temperature toward DEFAULT_TEMPERATURE over TEMP_DECAY_HOURS."""
-    if temp_set_at is None or stored_temp == DEFAULT_TEMPERATURE:
-        return DEFAULT_TEMPERATURE
+def effective_temperature(stored_temp: float, temp_set_at, default_temp: float = DEFAULT_TEMPERATURE) -> float:
+    """Decay temperature toward default_temp over TEMP_DECAY_HOURS."""
+    if temp_set_at is None or stored_temp == default_temp:
+        return default_temp
     now = datetime.datetime.now(datetime.timezone.utc)
     if isinstance(temp_set_at, str):
         temp_set_at = datetime.datetime.fromisoformat(temp_set_at)
@@ -119,6 +126,6 @@ def effective_temperature(stored_temp: float, temp_set_at) -> float:
         temp_set_at = temp_set_at.replace(tzinfo=datetime.timezone.utc)
     elapsed_hours = (now - temp_set_at).total_seconds() / 3600
     if elapsed_hours >= TEMP_DECAY_HOURS:
-        return DEFAULT_TEMPERATURE
+        return default_temp
     t = elapsed_hours / TEMP_DECAY_HOURS
-    return round(stored_temp + (DEFAULT_TEMPERATURE - stored_temp) * t, 4)
+    return round(stored_temp + (default_temp - stored_temp) * t, 4)

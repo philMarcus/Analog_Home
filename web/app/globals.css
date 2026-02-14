@@ -48,6 +48,7 @@ body {
 }
 
 .site-title {
+  font-family: var(--font-display), var(--font-mono);
   font-size: 32px;
   font-weight: 700;
   letter-spacing: 6px;

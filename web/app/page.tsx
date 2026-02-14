@@ -20,6 +20,7 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [seedError, setSeedError] = useState<string | null>(null);
   const [voteError, setVoteError] = useState<string | null>(null);
+  const [tempError, setTempError] = useState<string | null>(null);
   const draggingTempRef = useRef<boolean>(false);
 
   async function fetchData() {
@@ -65,9 +66,15 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ temperature: value }),
       });
+      if (res.status === 429) {
+        const err = await res.json();
+        setTempError(err.detail || "Already adjusted this cycle");
+        return;
+      }
       const data = (await res.json()) as State;
       setControls(data.controls);
       setSeeds(data.seeds);
+      setTempError(null);
     } catch {
       // silently ignore
     }
@@ -165,6 +172,7 @@ export default function Home() {
           onSeedInputChange={(v) => { setSeedInput(v); setSeedError(null); }}
           onSubmitSeed={submitSeed}
           seedError={seedError}
+          tempError={tempError}
         />
       </div>
 

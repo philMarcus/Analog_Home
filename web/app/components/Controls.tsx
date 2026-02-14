@@ -14,6 +14,7 @@ type Props = {
   onSeedInputChange: (value: string) => void;
   onSubmitSeed: () => void;
   seedError: string | null;
+  tempError: string | null;
 };
 
 export default function Controls({
@@ -28,6 +29,7 @@ export default function Controls({
   onSeedInputChange,
   onSubmitSeed,
   seedError,
+  tempError,
 }: Props) {
   return (
     <div className="cyber-panel">
@@ -45,6 +47,11 @@ export default function Controls({
           onPointerUp={(e) => onTempPointerUp(parseFloat((e.target as HTMLInputElement).value))}
           className="cyber-slider"
         />
+        {tempError && (
+          <div style={{ marginTop: 4, fontSize: 11, color: "var(--text-dim)" }}>
+            {tempError}
+          </div>
+        )}
       </div>
 
       {/* Seeds */}

@@ -15,11 +15,12 @@ class SeedRequest(BaseModel):
 
 
 class SetTrajectoryRequest(BaseModel):
-    """Agent sets new vote labels and resets counts."""
+    """Agent sets new vote labels, resets counts, and optionally sets default temperature."""
     label_1: str = Field(max_length=MAX_LABEL_LENGTH)
     label_2: str = Field(max_length=MAX_LABEL_LENGTH)
     label_3: str = Field(max_length=MAX_LABEL_LENGTH)
     reason: str = Field(default="", max_length=500)
+    default_temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
 
 
 class SeedOut(BaseModel):
@@ -43,10 +44,12 @@ class ArtifactOut(BaseModel):
     source_parent_id: str
     source_url: str
     search_queries: str = ""
+    temperature: Optional[float] = None
 
 
 class ControlsOut(BaseModel):
     temperature: float
+    default_temperature: float = 0.7
     vote_1: int
     vote_2: int
     vote_3: int

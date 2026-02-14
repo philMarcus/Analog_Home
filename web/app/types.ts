@@ -13,6 +13,7 @@ export type Artifact = {
   source_parent_id: string;
   source_url: string;
   search_queries: string;
+  temperature: number | null;
 };
 
 export type Seed = {
@@ -23,6 +24,7 @@ export type Seed = {
 
 export type Controls = {
   temperature: number;
+  default_temperature: number;
   vote_1: number;
   vote_2: number;
   vote_3: number;

@@ -65,6 +65,7 @@ export default function ArchivesPage() {
           expanded={expanded}
           onToggle={(id) => setExpanded(expanded === id ? null : id)}
           formatTime={formatTime}
+          header="ARTIFACTS"
         />
       )}
 

@@ -10,6 +10,16 @@ type Props = {
   header?: string;
 };
 
+function isSystemArtifact(art: Artifact): boolean {
+  return art.artifact_type.startsWith("system_");
+}
+
+function systemLabel(art: Artifact): string {
+  if (art.artifact_type === "system_kernel_update") return "KERNEL SELF-UPDATE";
+  if (art.artifact_type === "system_trajectory_update") return "TRAJECTORY CHANGE";
+  return "SYSTEM EVENT";
+}
+
 export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS" }: Props) {
   return (
     <div className="crt-terminal">
@@ -23,14 +33,16 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
         ) : (
           artifacts.map((art) => {
             const isExpanded = expanded === art.id;
+            const isSys = isSystemArtifact(art);
             return (
               <div
                 key={art.id}
-                className={`artifact-card${isExpanded ? " expanded" : ""}`}
+                className={`artifact-card${isExpanded ? " expanded" : ""}${isSys ? " system-event" : ""}`}
                 onClick={() => onToggle(art.id)}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span className="artifact-title">
+                  <span className={isSys ? "system-event-title" : "artifact-title"}>
+                    {isSys && <span className="system-event-badge">{systemLabel(art)}</span>}
                     {art.title || `[${art.artifact_type}]`}
                   </span>
                   <span className="artifact-meta">
@@ -40,7 +52,7 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                   </span>
                 </div>
 
-                {art.channel && (
+                {!isSys && art.channel && (
                   <div className="artifact-channel">
                     {art.source_platform}/{art.channel}
                   </div>
@@ -48,9 +60,9 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
 
                 {isExpanded && (
                   <div>
-                    <pre className="artifact-body">{art.body_markdown}</pre>
+                    <pre className={isSys ? "system-event-body" : "artifact-body"}>{art.body_markdown}</pre>
 
-                    {art.search_queries && (
+                    {!isSys && art.search_queries && (
                       <>
                         <hr className="artifact-divider" />
                         <h3 className="artifact-section-label">Search Queries</h3>
@@ -64,7 +76,7 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                       </>
                     )}
 
-                    {art.monologue_public && (
+                    {!isSys && art.monologue_public && (
                       <>
                         <hr className="artifact-divider" />
                         <h3 className="artifact-section-label">Internal Monologue</h3>
@@ -72,7 +84,7 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                       </>
                     )}
 
-                    {art.source_url && (
+                    {!isSys && art.source_url && (
                       <div style={{ marginTop: 12 }}>
                         <a
                           href={art.source_url}

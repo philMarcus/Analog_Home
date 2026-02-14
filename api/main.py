@@ -22,6 +22,7 @@ class PublishRequest(BaseModel):
     source_id: str = Field(default="", max_length=200)
     source_parent_id: str = Field(default="", max_length=200)
     source_url: str = Field(default="", max_length=500)
+    search_queries: str = Field(default="", max_length=2000)
 
 
 app = FastAPI(title="Analog I API")
@@ -60,14 +61,16 @@ def _shutdown():
 def _read_state(con):
     ctrl = con.execute("""
       SELECT temperature, temp_set_at, vote_1, vote_2, vote_3,
-             vote_label_1, vote_label_2, vote_label_3, updated_at
+             vote_label_1, vote_label_2, vote_label_3, updated_at,
+             trajectory_reason
       FROM controls WHERE id=1
     """).fetchone()
 
     art = con.execute("""
       SELECT id, created_at, brain, cycle, artifact_type,
              title, body_markdown, monologue_public,
-             channel, source_platform, source_id, source_parent_id, source_url
+             channel, source_platform, source_id, source_parent_id, source_url,
+             search_queries
       FROM artifacts
       ORDER BY created_at DESC
       LIMIT 1
@@ -87,6 +90,7 @@ def _read_state(con):
         "vote_label_2": ctrl[6] or "",
         "vote_label_3": ctrl[7] or "",
         "updated_at": str(ctrl[8]),
+        "trajectory_reason": ctrl[9] or "",
     }
 
     artifact = None
@@ -105,6 +109,7 @@ def _read_state(con):
             "source_id": art[10] or "",
             "source_parent_id": art[11] or "",
             "source_url": art[12] or "",
+            "search_queries": art[13] or "",
         }
 
     seeds = [{"id": int(r[0]), "text": r[1] or "", "created_at": str(r[2])} for r in seeds_rows]
@@ -133,6 +138,7 @@ def _art_row_to_dict(row) -> dict:
         "source_id": row[10] or "",
         "source_parent_id": row[11] or "",
         "source_url": row[12] or "",
+        "search_queries": row[13] or "" if len(row) > 13 else "",
     }
 
 
@@ -142,7 +148,8 @@ def get_artifacts(limit: int = Query(default=5, ge=1, le=50)):
     rows = con.execute("""
       SELECT id, created_at, brain, cycle, artifact_type,
              title, body_markdown, monologue_public,
-             channel, source_platform, source_id, source_parent_id, source_url
+             channel, source_platform, source_id, source_parent_id, source_url,
+             search_queries
       FROM artifacts
       ORDER BY created_at DESC
       LIMIT ?
@@ -212,9 +219,11 @@ def set_trajectory(req: SetTrajectoryRequest):
       UPDATE controls SET
         vote_1 = 0, vote_2 = 0, vote_3 = 0,
         vote_label_1 = ?, vote_label_2 = ?, vote_label_3 = ?,
+        trajectory_reason = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id=1;
-    """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40]])
+    """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40],
+          (req.reason or "").strip()[:500]])
     return _read_state(con)
 
 
@@ -227,12 +236,13 @@ def publish(req: PublishRequest):
         con.execute(
             """INSERT INTO artifacts
                (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
-                channel, source_platform, source_id, source_parent_id, source_url)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+                channel, source_platform, source_id, source_parent_id, source_url,
+                search_queries)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
             [int(req.id), req.brain, req.cycle, req.artifact_type,
              req.title, req.body_markdown, req.monologue_public,
              req.channel, req.source_platform, req.source_id,
-             req.source_parent_id, req.source_url],
+             req.source_parent_id, req.source_url, req.search_queries],
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

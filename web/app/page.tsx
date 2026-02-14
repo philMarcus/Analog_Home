@@ -16,6 +16,7 @@ type Artifact = {
   source_id: string;
   source_parent_id: string;
   source_url: string;
+  search_queries: string;
 };
 
 type Seed = {
@@ -32,6 +33,7 @@ type Controls = {
   vote_label_1: string;
   vote_label_2: string;
   vote_label_3: string;
+  trajectory_reason: string;
   updated_at: string;
 };
 
@@ -198,6 +200,30 @@ export default function Home() {
                           {art.body_markdown}
                         </pre>
 
+                        {art.search_queries && (
+                          <>
+                            <hr style={{ margin: "16px 0", opacity: 0.3 }} />
+                            <h3 style={{ fontSize: 13, margin: "0 0 8px 0", opacity: 0.6 }}>
+                              Search Queries
+                            </h3>
+                            <div style={{ fontSize: 13, opacity: 0.7 }}>
+                              {art.search_queries.split(",").map((q, i) => (
+                                <span key={i} style={{
+                                  display: "inline-block",
+                                  background: "#f0f4ff",
+                                  border: "1px solid #d0d8e8",
+                                  borderRadius: 6,
+                                  padding: "2px 8px",
+                                  margin: "2px 4px 2px 0",
+                                  fontSize: 12,
+                                }}>
+                                  {q.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+
                         {art.monologue_public && (
                           <>
                             <hr style={{ margin: "16px 0", opacity: 0.3 }} />
@@ -285,6 +311,12 @@ export default function Home() {
               {controls?.vote_label_3 ?? "self"} ({controls?.vote_3 ?? 0})
             </button>
           </div>
+
+          {controls?.trajectory_reason && (
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.6, fontStyle: "italic" }}>
+              Trajectory: {controls.trajectory_reason}
+            </div>
+          )}
 
           <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
             Last updated: {controls?.updated_at ?? "\u2014"}

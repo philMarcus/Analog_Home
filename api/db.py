@@ -80,6 +80,16 @@ def init_db() -> None:
     );
     """)
 
+    # Migrations: add columns that may not exist yet
+    for stmt in [
+        "ALTER TABLE artifacts ADD COLUMN search_queries VARCHAR DEFAULT ''",
+        "ALTER TABLE controls ADD COLUMN trajectory_reason VARCHAR DEFAULT ''",
+    ]:
+        try:
+            con.execute(stmt)
+        except Exception:
+            pass  # column already exists
+
     # Ensure exactly one controls row (id=1)
     con.execute("""
       INSERT INTO controls (id, temperature, temp_set_at, vote_1, vote_2, vote_3,

@@ -19,6 +19,7 @@ class SetTrajectoryRequest(BaseModel):
     label_1: str = Field(max_length=MAX_LABEL_LENGTH)
     label_2: str = Field(max_length=MAX_LABEL_LENGTH)
     label_3: str = Field(max_length=MAX_LABEL_LENGTH)
+    reason: str = Field(default="", max_length=500)
 
 
 class SeedOut(BaseModel):
@@ -41,6 +42,7 @@ class ArtifactOut(BaseModel):
     source_id: str
     source_parent_id: str
     source_url: str
+    search_queries: str = ""
 
 
 class ControlsOut(BaseModel):
@@ -51,6 +53,7 @@ class ControlsOut(BaseModel):
     vote_label_1: str
     vote_label_2: str
     vote_label_3: str
+    trajectory_reason: str = ""
     updated_at: str
 
 

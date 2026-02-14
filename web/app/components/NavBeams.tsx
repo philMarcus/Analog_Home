@@ -1,7 +1,7 @@
 "use client";
 
 const NAV_LINKS = [
-  { label: "Archives", href: "#" },
+  { label: "Archives", href: "/archives" },
   { label: "About", href: "#" },
   { label: "Source", href: "#" },
 ];
@@ -45,17 +45,19 @@ export default function NavBeams() {
               strokeWidth="1.5"
               opacity="0.4"
             />
-            <text
-              x={endX + 12}
-              y={endY + 4}
-              textAnchor="start"
-              fill="#00ffd5"
-              fontSize="14"
-              fontFamily="var(--font-mono)"
-              style={{ letterSpacing: "1px", cursor: "pointer" }}
-            >
-              {link.label.toUpperCase()}
-            </text>
+            <a href={link.href}>
+              <text
+                x={endX + 12}
+                y={endY + 4}
+                textAnchor="start"
+                fill="#00ffd5"
+                fontSize="14"
+                fontFamily="var(--font-mono)"
+                style={{ letterSpacing: "1px", cursor: "pointer" }}
+              >
+                {link.label.toUpperCase()}
+              </text>
+            </a>
           </g>
         );
       })}

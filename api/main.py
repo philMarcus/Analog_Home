@@ -143,7 +143,7 @@ def _art_row_to_dict(row) -> dict:
 
 
 @app.get("/artifacts", response_model=List[ArtifactOut])
-def get_artifacts(limit: int = Query(default=5, ge=1, le=50)):
+def get_artifacts(limit: int = Query(default=5, ge=1, le=50), offset: int = Query(default=0, ge=0)):
     con = connect()
     rows = con.execute("""
       SELECT id, created_at, brain, cycle, artifact_type,
@@ -152,9 +152,16 @@ def get_artifacts(limit: int = Query(default=5, ge=1, le=50)):
              search_queries
       FROM artifacts
       ORDER BY created_at DESC
-      LIMIT ?
-    """, [limit]).fetchall()
+      LIMIT ? OFFSET ?
+    """, [limit, offset]).fetchall()
     return [_art_row_to_dict(r) for r in rows]
+
+
+@app.get("/artifacts/count")
+def get_artifacts_count():
+    con = connect()
+    count = con.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
+    return {"count": int(count)}
 
 
 @app.post("/vote", response_model=StateOut)

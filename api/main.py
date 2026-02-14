@@ -291,6 +291,17 @@ def set_trajectory(req: SetTrajectoryRequest):
         return state
 
 
+@app.delete("/artifacts/{artifact_id}")
+def delete_artifact(artifact_id: int):
+    """Delete a single artifact by ID."""
+    with get_pool().connection() as conn:
+        result = conn.execute("DELETE FROM artifacts WHERE id = %s", [artifact_id])
+        conn.commit()
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        return {"deleted": artifact_id}
+
+
 @app.post("/publish", response_model=StateOut)
 def publish(req: PublishRequest):
     """Publish a new artifact."""

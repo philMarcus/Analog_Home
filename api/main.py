@@ -312,7 +312,14 @@ def publish(req: PublishRequest):
                    (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
                     channel, source_platform, source_id, source_parent_id, source_url,
                     search_queries, temperature)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (id) DO UPDATE SET
+                    brain=EXCLUDED.brain, cycle=EXCLUDED.cycle, artifact_type=EXCLUDED.artifact_type,
+                    title=EXCLUDED.title, body_markdown=EXCLUDED.body_markdown,
+                    monologue_public=EXCLUDED.monologue_public, channel=EXCLUDED.channel,
+                    source_platform=EXCLUDED.source_platform, source_id=EXCLUDED.source_id,
+                    source_parent_id=EXCLUDED.source_parent_id, source_url=EXCLUDED.source_url,
+                    search_queries=EXCLUDED.search_queries, temperature=EXCLUDED.temperature;""",
                 [int(req.id), req.brain, req.cycle, req.artifact_type,
                  req.title, req.body_markdown, req.monologue_public,
                  req.channel, req.source_platform, req.source_id,

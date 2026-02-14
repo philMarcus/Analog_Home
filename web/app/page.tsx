@@ -26,7 +26,7 @@ export default function Home() {
     try {
       const [stateRes, artsRes] = await Promise.all([
         fetch(`${API}/state`),
-        fetch(`${API}/artifacts?limit=5`),
+        fetch(`${API}/artifacts?limit=25`),
       ]);
       if (!stateRes.ok || !artsRes.ok) return;
       const stateData = (await stateRes.json()) as State;

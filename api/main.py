@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from db import init_db, connect, close, effective_temperature, MAX_SEEDS_RETURNED, MAX_SEEDS, MAX_VOTES_PER_IP
+from db import init_db, get_pool, close, effective_temperature, MAX_SEEDS_RETURNED, MAX_SEEDS, MAX_VOTES_PER_IP
 from models import ArtifactOut, VoteRequest, SeedRequest, SetTrajectoryRequest, StateOut
 from pydantic import BaseModel, Field
 
@@ -46,17 +46,17 @@ def _startup():
     init_db()
 
 
-@app.get("/healthz")
-def healthz():
-    """Lightweight health check — verifies DuckDB is queryable."""
-    con = connect()
-    con.execute("SELECT 1").fetchone()
-    return {"ok": True}
-
-
 @app.on_event("shutdown")
 def _shutdown():
     close()
+
+
+@app.get("/healthz")
+def healthz():
+    """Lightweight health check — verifies Postgres is reachable."""
+    with get_pool().connection() as conn:
+        conn.execute("SELECT 1").fetchone()
+    return {"ok": True}
 
 
 _ART_COLS = """id, created_at, brain, cycle, artifact_type,
@@ -65,24 +65,24 @@ _ART_COLS = """id, created_at, brain, cycle, artifact_type,
              search_queries, temperature"""
 
 
-def _read_state(con):
-    ctrl = con.execute("""
+def _read_state(conn):
+    ctrl = conn.execute("""
       SELECT temperature, temp_set_at, vote_1, vote_2, vote_3,
              vote_label_1, vote_label_2, vote_label_3, updated_at,
              trajectory_reason, default_temperature
       FROM controls WHERE id=1
     """).fetchone()
 
-    art = con.execute(f"""
+    art = conn.execute(f"""
       SELECT {_ART_COLS}
       FROM artifacts
       ORDER BY created_at DESC
       LIMIT 1
     """).fetchone()
 
-    seeds_rows = con.execute("""
+    seeds_rows = conn.execute("""
       SELECT id, text, created_at FROM seeds
-      ORDER BY created_at ASC LIMIT ?
+      ORDER BY created_at ASC LIMIT %s
     """, [MAX_SEEDS_RETURNED]).fetchall()
 
     default_temp = float(ctrl[10]) if ctrl[10] is not None else 0.7
@@ -111,8 +111,8 @@ def _read_state(con):
 
 @app.get("/state", response_model=StateOut)
 def get_state():
-    con = connect()
-    return _read_state(con)
+    with get_pool().connection() as conn:
+        return _read_state(conn)
 
 
 def _art_row_to_dict(row) -> dict:
@@ -137,21 +137,21 @@ def _art_row_to_dict(row) -> dict:
 
 @app.get("/artifacts", response_model=List[ArtifactOut])
 def get_artifacts(limit: int = Query(default=5, ge=1, le=50), offset: int = Query(default=0, ge=0)):
-    con = connect()
-    rows = con.execute(f"""
-      SELECT {_ART_COLS}
-      FROM artifacts
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    """, [limit, offset]).fetchall()
-    return [_art_row_to_dict(r) for r in rows]
+    with get_pool().connection() as conn:
+        rows = conn.execute(f"""
+          SELECT {_ART_COLS}
+          FROM artifacts
+          ORDER BY created_at DESC
+          LIMIT %s OFFSET %s
+        """, [limit, offset]).fetchall()
+        return [_art_row_to_dict(r) for r in rows]
 
 
 @app.get("/artifacts/count")
 def get_artifacts_count():
-    con = connect()
-    count = con.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
-    return {"count": int(count)}
+    with get_pool().connection() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
+        return {"count": int(count)}
 
 
 def _get_client_ip(request: Request) -> str:
@@ -161,84 +161,89 @@ def _get_client_ip(request: Request) -> str:
 
 @app.post("/vote", response_model=StateOut)
 def post_vote(req: VoteRequest, request: Request):
-    con = connect()
+    with get_pool().connection() as conn:
+        # Rate-limit votes per IP (resets each trajectory cycle)
+        ip = _get_client_ip(request)
+        row = conn.execute(
+            "SELECT count FROM ip_rate_limits WHERE ip = %s AND action = 'vote'", [ip]
+        ).fetchone()
+        if row and row[0] >= MAX_VOTES_PER_IP:
+            raise HTTPException(status_code=429, detail="Vote limit reached (5 per cycle)")
+        conn.execute("""
+            INSERT INTO ip_rate_limits (ip, action, count) VALUES (%s, 'vote', 1)
+            ON CONFLICT (ip, action) DO UPDATE SET count = ip_rate_limits.count + 1
+        """, [ip])
 
-    # Rate-limit votes per IP (resets each trajectory cycle)
-    ip = _get_client_ip(request)
-    row = con.execute(
-        "SELECT count FROM ip_rate_limits WHERE ip = ? AND action = 'vote'", [ip]
-    ).fetchone()
-    if row and row[0] >= MAX_VOTES_PER_IP:
-        raise HTTPException(status_code=429, detail="Vote limit reached (5 per cycle)")
-    con.execute("""
-        INSERT INTO ip_rate_limits (ip, action, count) VALUES (?, 'vote', 1)
-        ON CONFLICT (ip, action) DO UPDATE SET count = count + 1
-    """, [ip])
-
-    col = f"vote_{req.choice}"
-    con.execute(
-        f"UPDATE controls SET {col} = {col} + 1, updated_at = CURRENT_TIMESTAMP WHERE id=1;"
-    )
-
-    if req.temperature is not None:
-        con.execute(
-            "UPDATE controls SET temperature = ?, temp_set_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
-            [float(req.temperature)]
+        col = f"vote_{req.choice}"
+        conn.execute(
+            f"UPDATE controls SET {col} = {col} + 1, updated_at = CURRENT_TIMESTAMP WHERE id=1;"
         )
 
-    return _read_state(con)
+        if req.temperature is not None:
+            conn.execute(
+                "UPDATE controls SET temperature = %s, temp_set_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
+                [float(req.temperature)]
+            )
+
+        state = _read_state(conn)
+        conn.commit()
+        return state
 
 
 @app.post("/temperature", response_model=StateOut)
 def post_temperature(req: dict, request: Request):
-    """Set temperature directly (without voting). One adjustment per IP per cycle, clamped to ±0.5."""
+    """Set temperature directly. One adjustment per IP per cycle, clamped to +/-0.5."""
     t = req.get("temperature")
     if t is None:
         raise HTTPException(status_code=400, detail="temperature required")
     t = float(t)
 
-    con = connect()
-    ip = _get_client_ip(request)
+    with get_pool().connection() as conn:
+        ip = _get_client_ip(request)
 
-    # Check if this IP already adjusted temperature this cycle
-    row = con.execute(
-        "SELECT count FROM ip_rate_limits WHERE ip = ? AND action = 'temp'", [ip]
-    ).fetchone()
-    if row:
-        raise HTTPException(status_code=429, detail="Temperature already adjusted this cycle")
+        # Check if this IP already adjusted temperature this cycle
+        row = conn.execute(
+            "SELECT count FROM ip_rate_limits WHERE ip = %s AND action = 'temp'", [ip]
+        ).fetchone()
+        if row:
+            raise HTTPException(status_code=429, detail="Temperature already adjusted this cycle")
 
-    # Clamp to ±0.5 from current effective temperature
-    ctrl = con.execute(
-        "SELECT temperature, temp_set_at, default_temperature FROM controls WHERE id=1"
-    ).fetchone()
-    default_temp = float(ctrl[2]) if ctrl[2] is not None else 0.7
-    current = effective_temperature(float(ctrl[0]), ctrl[1], default_temp)
-    t = max(current - 0.5, min(current + 0.5, t))
-    t = max(0.0, min(2.0, t))
+        # Clamp to +/-0.5 from current effective temperature
+        ctrl = conn.execute(
+            "SELECT temperature, temp_set_at, default_temperature FROM controls WHERE id=1"
+        ).fetchone()
+        default_temp = float(ctrl[2]) if ctrl[2] is not None else 0.7
+        current = effective_temperature(float(ctrl[0]), ctrl[1], default_temp)
+        t = max(current - 0.5, min(current + 0.5, t))
+        t = max(0.0, min(2.0, t))
 
-    # Record the adjustment
-    con.execute(
-        "INSERT INTO ip_rate_limits (ip, action, count) VALUES (?, 'temp', 1)", [ip]
-    )
-    con.execute(
-        "UPDATE controls SET temperature = ?, temp_set_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
-        [t]
-    )
-    return _read_state(con)
+        # Record the adjustment
+        conn.execute(
+            "INSERT INTO ip_rate_limits (ip, action, count) VALUES (%s, 'temp', 1)", [ip]
+        )
+        conn.execute(
+            "UPDATE controls SET temperature = %s, temp_set_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
+            [t]
+        )
+        state = _read_state(conn)
+        conn.commit()
+        return state
 
 
 @app.post("/seed", response_model=StateOut)
 def post_seed(req: SeedRequest):
-    con = connect()
-    text = req.text.strip()[:200]
-    if not text:
-        raise HTTPException(status_code=400, detail="Seed text cannot be empty")
-    count = con.execute("SELECT COUNT(*) FROM seeds").fetchone()[0]
-    if count >= MAX_SEEDS:
-        raise HTTPException(status_code=409, detail="Seedbank full \u2014 wait for the agent to consume seeds")
-    next_id = con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM seeds").fetchone()[0]
-    con.execute("INSERT INTO seeds (id, text) VALUES (?, ?);", [next_id, text])
-    return _read_state(con)
+    with get_pool().connection() as conn:
+        text = req.text.strip()[:200]
+        if not text:
+            raise HTTPException(status_code=400, detail="Seed text cannot be empty")
+        count = conn.execute("SELECT COUNT(*) FROM seeds").fetchone()[0]
+        if count >= MAX_SEEDS:
+            raise HTTPException(status_code=409, detail="Seedbank full \u2014 wait for the agent to consume seeds")
+        next_id = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM seeds").fetchone()[0]
+        conn.execute("INSERT INTO seeds (id, text) VALUES (%s, %s);", [next_id, text])
+        state = _read_state(conn)
+        conn.commit()
+        return state
 
 
 @app.post("/consume-seeds")
@@ -247,63 +252,65 @@ def consume_seeds(req: dict):
     ids = req.get("ids", [])
     if not ids:
         return {"deleted": 0}
-    con = connect()
-    placeholders = ",".join("?" for _ in ids)
-    con.execute(f"DELETE FROM seeds WHERE id IN ({placeholders});", [int(i) for i in ids])
+    with get_pool().connection() as conn:
+        conn.execute("DELETE FROM seeds WHERE id = ANY(%s)", [[int(i) for i in ids]])
+        conn.commit()
     return {"deleted": len(ids)}
 
 
 @app.post("/set-trajectory", response_model=StateOut)
 def set_trajectory(req: SetTrajectoryRequest):
-    con = connect()
+    with get_pool().connection() as conn:
+        # Build SET clause dynamically based on whether default_temperature is provided
+        if req.default_temperature is not None:
+            conn.execute("""
+              UPDATE controls SET
+                vote_1 = 0, vote_2 = 0, vote_3 = 0,
+                vote_label_1 = %s, vote_label_2 = %s, vote_label_3 = %s,
+                trajectory_reason = %s,
+                default_temperature = %s,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE id=1;
+            """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40],
+                  (req.reason or "").strip()[:500], float(req.default_temperature)])
+        else:
+            conn.execute("""
+              UPDATE controls SET
+                vote_1 = 0, vote_2 = 0, vote_3 = 0,
+                vote_label_1 = %s, vote_label_2 = %s, vote_label_3 = %s,
+                trajectory_reason = %s,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE id=1;
+            """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40],
+                  (req.reason or "").strip()[:500]])
 
-    # Build SET clause dynamically based on whether default_temperature is provided
-    if req.default_temperature is not None:
-        con.execute("""
-          UPDATE controls SET
-            vote_1 = 0, vote_2 = 0, vote_3 = 0,
-            vote_label_1 = ?, vote_label_2 = ?, vote_label_3 = ?,
-            trajectory_reason = ?,
-            default_temperature = ?,
-            updated_at = CURRENT_TIMESTAMP
-          WHERE id=1;
-        """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40],
-              (req.reason or "").strip()[:500], float(req.default_temperature)])
-    else:
-        con.execute("""
-          UPDATE controls SET
-            vote_1 = 0, vote_2 = 0, vote_3 = 0,
-            vote_label_1 = ?, vote_label_2 = ?, vote_label_3 = ?,
-            trajectory_reason = ?,
-            updated_at = CURRENT_TIMESTAMP
-          WHERE id=1;
-        """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40],
-              (req.reason or "").strip()[:500]])
-
-    # Reset per-IP rate limits for the new cycle
-    con.execute("DELETE FROM ip_rate_limits")
-    return _read_state(con)
+        # Reset per-IP rate limits for the new cycle
+        conn.execute("DELETE FROM ip_rate_limits")
+        state = _read_state(conn)
+        conn.commit()
+        return state
 
 
 @app.post("/publish", response_model=StateOut)
 def publish(req: PublishRequest):
-    """Publish a new artifact via HTTP. Only the API touches DuckDB."""
-    con = connect()
+    """Publish a new artifact."""
+    with get_pool().connection() as conn:
+        try:
+            conn.execute(
+                """INSERT INTO artifacts
+                   (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
+                    channel, source_platform, source_id, source_parent_id, source_url,
+                    search_queries, temperature)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
+                [int(req.id), req.brain, req.cycle, req.artifact_type,
+                 req.title, req.body_markdown, req.monologue_public,
+                 req.channel, req.source_platform, req.source_id,
+                 req.source_parent_id, req.source_url, req.search_queries,
+                 req.temperature],
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
-    try:
-        con.execute(
-            """INSERT INTO artifacts
-               (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
-                channel, source_platform, source_id, source_parent_id, source_url,
-                search_queries, temperature)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
-            [int(req.id), req.brain, req.cycle, req.artifact_type,
-             req.title, req.body_markdown, req.monologue_public,
-             req.channel, req.source_platform, req.source_id,
-             req.source_parent_id, req.source_url, req.search_queries,
-             req.temperature],
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return _read_state(con)
+        state = _read_state(conn)
+        conn.commit()
+        return state

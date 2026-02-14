@@ -1,11 +1,16 @@
+"""Postgres database layer for Analog Home API.
+
+Uses psycopg3 with connection pooling. Connects to Neon serverless Postgres.
+"""
+
 import os
 import datetime
-import duckdb
+from psycopg_pool import ConnectionPool
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_PATH = os.getenv("ANALOG_DB_PATH", "../data/analog.duckdb")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 # ---------------------------------------------------------------------------
 # Configurable defaults (easy to find and tweak)
@@ -17,102 +22,92 @@ MAX_SEEDS = 10              # reject new seeds when seedbank has this many
 MAX_SEEDS_RETURNED = 10
 MAX_VOTES_PER_IP = 5        # per-IP vote cap, resets each trajectory cycle
 
-# Keep a single connection per API process to avoid Windows file-lock churn.
-_CON = None
-
-
-def connect() -> duckdb.DuckDBPyConnection:
-    global _CON
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    if _CON is None:
-        _CON = duckdb.connect(DB_PATH)
-    return _CON
-
-
-def close() -> None:
-    global _CON
-    if _CON is not None:
-        try:
-            _CON.close()
-        finally:
-            _CON = None
+_pool: ConnectionPool | None = None
 
 
 def init_db() -> None:
-    con = connect()
+    """Create tables (if needed) and open the connection pool."""
+    global _pool
+    _pool = ConnectionPool(DATABASE_URL, min_size=2, max_size=10)
 
-    con.execute("""
-    CREATE TABLE IF NOT EXISTS controls (
-      id INTEGER PRIMARY KEY,
-      temperature DOUBLE,
-      temp_set_at TIMESTAMP,
-      vote_1 INTEGER,
-      vote_2 INTEGER,
-      vote_3 INTEGER,
-      vote_label_1 VARCHAR,
-      vote_label_2 VARCHAR,
-      vote_label_3 VARCHAR,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
+    with _pool.connection() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS controls (
+                id INTEGER PRIMARY KEY,
+                temperature DOUBLE PRECISION,
+                temp_set_at TIMESTAMPTZ,
+                vote_1 INTEGER DEFAULT 0,
+                vote_2 INTEGER DEFAULT 0,
+                vote_3 INTEGER DEFAULT 0,
+                vote_label_1 VARCHAR DEFAULT '',
+                vote_label_2 VARCHAR DEFAULT '',
+                vote_label_3 VARCHAR DEFAULT '',
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                trajectory_reason VARCHAR DEFAULT '',
+                default_temperature DOUBLE PRECISION DEFAULT 0.7
+            )
+        """)
 
-    con.execute("""
-    CREATE TABLE IF NOT EXISTS seeds (
-      id INTEGER PRIMARY KEY,
-      text VARCHAR,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS seeds (
+                id INTEGER PRIMARY KEY,
+                text VARCHAR,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
-    con.execute("""
-    CREATE TABLE IF NOT EXISTS artifacts (
-      id BIGINT PRIMARY KEY,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      brain VARCHAR,
-      cycle INTEGER,
-      artifact_type VARCHAR,
-      title VARCHAR,
-      body_markdown VARCHAR,
-      monologue_public VARCHAR,
-      channel VARCHAR,
-      source_platform VARCHAR,
-      source_id VARCHAR,
-      source_parent_id VARCHAR,
-      source_url VARCHAR
-    );
-    """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS artifacts (
+                id BIGINT PRIMARY KEY,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                brain VARCHAR DEFAULT '',
+                cycle INTEGER,
+                artifact_type VARCHAR DEFAULT 'post',
+                title VARCHAR DEFAULT '',
+                body_markdown TEXT DEFAULT '',
+                monologue_public TEXT DEFAULT '',
+                channel VARCHAR DEFAULT '',
+                source_platform VARCHAR DEFAULT '',
+                source_id VARCHAR DEFAULT '',
+                source_parent_id VARCHAR DEFAULT '',
+                source_url VARCHAR DEFAULT '',
+                search_queries VARCHAR DEFAULT '',
+                temperature DOUBLE PRECISION
+            )
+        """)
 
-    con.execute("""
-    CREATE TABLE IF NOT EXISTS ip_rate_limits (
-      ip VARCHAR,
-      action VARCHAR,
-      count INTEGER DEFAULT 0,
-      PRIMARY KEY (ip, action)
-    );
-    """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ip_rate_limits (
+                ip VARCHAR,
+                action VARCHAR,
+                count INTEGER DEFAULT 0,
+                PRIMARY KEY (ip, action)
+            )
+        """)
 
-    # Drop legacy table (transient per-cycle data, safe to lose)
-    con.execute("DROP TABLE IF EXISTS vote_log")
+        # Ensure exactly one controls row (id=1)
+        conn.execute("""
+            INSERT INTO controls (id, temperature, vote_1, vote_2, vote_3,
+                                  vote_label_1, vote_label_2, vote_label_3)
+            VALUES (1, %s, 0, 0, 0, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+        """, [DEFAULT_TEMPERATURE, *DEFAULT_VOTE_LABELS])
 
-    # Migrations: add columns that may not exist yet
-    for stmt in [
-        "ALTER TABLE artifacts ADD COLUMN search_queries VARCHAR DEFAULT ''",
-        "ALTER TABLE artifacts ADD COLUMN temperature DOUBLE",
-        "ALTER TABLE controls ADD COLUMN trajectory_reason VARCHAR DEFAULT ''",
-        "ALTER TABLE controls ADD COLUMN default_temperature DOUBLE DEFAULT 0.7",
-    ]:
-        try:
-            con.execute(stmt)
-        except Exception:
-            pass  # column already exists
+        conn.commit()
 
-    # Ensure exactly one controls row (id=1)
-    con.execute("""
-      INSERT INTO controls (id, temperature, temp_set_at, vote_1, vote_2, vote_3,
-                            vote_label_1, vote_label_2, vote_label_3)
-      SELECT 1, ?, NULL, 0, 0, 0, ?, ?, ?
-      WHERE NOT EXISTS (SELECT 1 FROM controls WHERE id=1);
-    """, [DEFAULT_TEMPERATURE, *DEFAULT_VOTE_LABELS])
+
+def get_pool() -> ConnectionPool:
+    """Return the connection pool. Must call init_db() first."""
+    assert _pool is not None, "Database not initialized — call init_db() first"
+    return _pool
+
+
+def close() -> None:
+    """Shut down the connection pool."""
+    global _pool
+    if _pool is not None:
+        _pool.close()
+        _pool = None
 
 
 def effective_temperature(stored_temp: float, temp_set_at, default_temp: float = DEFAULT_TEMPERATURE) -> float:

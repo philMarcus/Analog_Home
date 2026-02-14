@@ -1,5 +1,5 @@
 fastapi
 uvicorn[standard]
-duckdb
+psycopg[binary,pool]
 pydantic
 python-dotenv

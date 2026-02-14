@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Artifact = {
   id: number;
@@ -49,11 +49,11 @@ export default function Home() {
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [lastSeenTopId, setLastSeenTopId] = useState<number | null>(null);
+  const lastSeenTopIdRef = useRef<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
   const [seedInput, setSeedInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [draggingTemp, setDraggingTemp] = useState<boolean>(false);
+  const draggingTempRef = useRef<boolean>(false);
 
   async function fetchData() {
     try {
@@ -65,7 +65,7 @@ export default function Home() {
       const stateData = (await stateRes.json()) as State;
       const artsData = (await artsRes.json()) as Artifact[];
       setControls(stateData.controls);
-      if (!draggingTemp) {
+      if (!draggingTempRef.current) {
         setTemp(stateData.controls.temperature);
       }
       setSeeds(stateData.seeds);
@@ -74,9 +74,9 @@ export default function Home() {
       }
       if (artsData.length > 0) {
         const topId = artsData[0].id;
-        if (lastSeenTopId === null || topId !== lastSeenTopId) {
+        if (lastSeenTopIdRef.current === null || topId !== lastSeenTopIdRef.current) {
           setExpanded(topId);
-          setLastSeenTopId(topId);
+          lastSeenTopIdRef.current = topId;
         }
       }
     } catch {
@@ -264,9 +264,9 @@ export default function Home() {
               step={0.01}
               value={temp}
               onChange={(e) => setTemp(parseFloat(e.target.value))}
-              onPointerDown={() => setDraggingTemp(true)}
+              onPointerDown={() => { draggingTempRef.current = true; }}
               onPointerUp={(e) => {
-                setDraggingTemp(false);
+                draggingTempRef.current = false;
                 commitTemperature(parseFloat((e.target as HTMLInputElement).value));
               }}
               style={{ width: "100%" }}

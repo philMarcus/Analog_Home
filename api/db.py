@@ -13,7 +13,9 @@ DB_PATH = os.getenv("ANALOG_DB_PATH", "../data/analog.duckdb")
 DEFAULT_TEMPERATURE = 0.7
 TEMP_DECAY_HOURS = 24
 DEFAULT_VOTE_LABELS = ("emergence", "entropy", "self")
+MAX_SEEDS = 10              # reject new seeds when seedbank has this many
 MAX_SEEDS_RETURNED = 10
+MAX_VOTES_PER_IP = 5        # per-IP vote cap, resets each trajectory cycle
 
 # Keep a single connection per API process to avoid Windows file-lock churn.
 _CON = None
@@ -77,6 +79,13 @@ def init_db() -> None:
       source_id VARCHAR,
       source_parent_id VARCHAR,
       source_url VARCHAR
+    );
+    """)
+
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS vote_log (
+      ip VARCHAR PRIMARY KEY,
+      vote_count INTEGER DEFAULT 0
     );
     """)
 

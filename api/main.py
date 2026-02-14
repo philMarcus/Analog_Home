@@ -1,9 +1,9 @@
 import time
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from db import init_db, connect, close, effective_temperature, MAX_SEEDS_RETURNED
+from db import init_db, connect, close, effective_temperature, MAX_SEEDS_RETURNED, MAX_SEEDS, MAX_VOTES_PER_IP
 from models import ArtifactOut, VoteRequest, SeedRequest, SetTrajectoryRequest, StateOut
 from pydantic import BaseModel, Field
 
@@ -78,7 +78,7 @@ def _read_state(con):
 
     seeds_rows = con.execute("""
       SELECT id, text, created_at FROM seeds
-      ORDER BY created_at DESC LIMIT ?
+      ORDER BY created_at ASC LIMIT ?
     """, [MAX_SEEDS_RETURNED]).fetchall()
 
     controls = {
@@ -158,8 +158,20 @@ def get_artifacts(limit: int = Query(default=5, ge=1, le=50)):
 
 
 @app.post("/vote", response_model=StateOut)
-def post_vote(req: VoteRequest):
+def post_vote(req: VoteRequest, request: Request):
     con = connect()
+
+    # Rate-limit votes per IP (resets each trajectory cycle)
+    ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+          or request.client.host)
+    row = con.execute("SELECT vote_count FROM vote_log WHERE ip = ?", [ip]).fetchone()
+    if row and row[0] >= MAX_VOTES_PER_IP:
+        raise HTTPException(status_code=429, detail="Vote limit reached (5 per cycle)")
+    con.execute("""
+        INSERT INTO vote_log (ip, vote_count) VALUES (?, 1)
+        ON CONFLICT (ip) DO UPDATE SET vote_count = vote_count + 1
+    """, [ip])
+
     col = f"vote_{req.choice}"
     con.execute(
         f"UPDATE controls SET {col} = {col} + 1, updated_at = CURRENT_TIMESTAMP WHERE id=1;"
@@ -195,6 +207,9 @@ def post_seed(req: SeedRequest):
     text = req.text.strip()[:200]
     if not text:
         raise HTTPException(status_code=400, detail="Seed text cannot be empty")
+    count = con.execute("SELECT COUNT(*) FROM seeds").fetchone()[0]
+    if count >= MAX_SEEDS:
+        raise HTTPException(status_code=409, detail="Seedbank full \u2014 wait for the agent to consume seeds")
     next_id = con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM seeds").fetchone()[0]
     con.execute("INSERT INTO seeds (id, text) VALUES (?, ?);", [next_id, text])
     return _read_state(con)
@@ -224,6 +239,8 @@ def set_trajectory(req: SetTrajectoryRequest):
       WHERE id=1;
     """, [req.label_1.strip()[:40], req.label_2.strip()[:40], req.label_3.strip()[:40],
           (req.reason or "").strip()[:500]])
+    # Reset per-IP vote tracking for the new cycle
+    con.execute("DELETE FROM vote_log")
     return _read_state(con)
 
 

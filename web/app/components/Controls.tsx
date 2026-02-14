@@ -13,6 +13,7 @@ type Props = {
   onTempPointerUp: (value: number) => void;
   onSeedInputChange: (value: string) => void;
   onSubmitSeed: () => void;
+  seedError: string | null;
 };
 
 export default function Controls({
@@ -26,6 +27,7 @@ export default function Controls({
   onTempPointerUp,
   onSeedInputChange,
   onSubmitSeed,
+  seedError,
 }: Props) {
   return (
     <div className="cyber-panel">
@@ -66,6 +68,11 @@ export default function Controls({
             Send
           </button>
         </div>
+        {seedError && (
+          <div style={{ marginTop: 6, fontSize: 12, color: "var(--magenta)" }}>
+            {seedError}
+          </div>
+        )}
         {seeds.length > 0 && (
           <div
             style={{

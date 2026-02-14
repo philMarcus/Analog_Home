@@ -6,9 +6,10 @@ type Props = {
   controls: Controls | null;
   loading: boolean;
   onVote: (choice: "1" | "2" | "3") => void;
+  error: string | null;
 };
 
-export default function VotingBox({ controls, loading, onVote }: Props) {
+export default function VotingBox({ controls, loading, onVote, error }: Props) {
   return (
     <div className="cyber-panel voting-box">
       <div className="section-label" style={{ textAlign: "center", marginBottom: 10 }}>
@@ -28,6 +29,11 @@ export default function VotingBox({ controls, loading, onVote }: Props) {
           <span className="vote-count">{controls?.vote_3 ?? 0}</span>
         </button>
       </div>
+      {error && (
+        <div style={{ marginTop: 8, fontSize: 11, color: "var(--magenta)", textAlign: "center" }}>
+          {error}
+        </div>
+      )}
       {controls?.trajectory_reason && (
         <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-dim)", fontStyle: "italic", textAlign: "center" }}>
           {controls.trajectory_reason}

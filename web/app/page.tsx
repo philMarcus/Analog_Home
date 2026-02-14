@@ -18,6 +18,8 @@ export default function Home() {
   const [temp, setTemp] = useState<number>(0.7);
   const [seedInput, setSeedInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
+  const [voteError, setVoteError] = useState<string | null>(null);
   const draggingTempRef = useRef<boolean>(false);
 
   async function fetchData() {
@@ -79,9 +81,15 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ choice }),
       });
+      if (res.status === 429) {
+        const err = await res.json();
+        setVoteError(err.detail || "Vote limit reached");
+        return;
+      }
       const data = (await res.json()) as State;
       setControls(data.controls);
       setSeeds(data.seeds);
+      setVoteError(null);
     } finally {
       setLoading(false);
     }
@@ -96,10 +104,16 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: seedInput.trim() }),
       });
+      if (res.status === 409) {
+        const err = await res.json();
+        setSeedError(err.detail || "Seedbank full");
+        return;
+      }
       const data = (await res.json()) as State;
       setControls(data.controls);
       setSeeds(data.seeds);
       setSeedInput("");
+      setSeedError(null);
     } finally {
       setLoading(false);
     }
@@ -135,7 +149,7 @@ export default function Home() {
 
       {/* Controls row: voting box | temp+seed panel */}
       <div className="controls-row">
-        <VotingBox controls={controls} loading={loading} onVote={vote} />
+        <VotingBox controls={controls} loading={loading} onVote={vote} error={voteError} />
         <ControlsPanel
           controls={controls}
           seeds={seeds}
@@ -148,8 +162,9 @@ export default function Home() {
             draggingTempRef.current = false;
             commitTemperature(value);
           }}
-          onSeedInputChange={setSeedInput}
+          onSeedInputChange={(v) => { setSeedInput(v); setSeedError(null); }}
           onSubmitSeed={submitSeed}
+          seedError={seedError}
         />
       </div>
 

@@ -1,26 +1,412 @@
-@import "tailwindcss";
+/* ── Analog_I — Cyberpunk Theme ── */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0a0a0f;
+  --bg-panel: rgba(10, 10, 20, 0.85);
+  --cyan: #00ffd5;
+  --cyan-dim: #00997f;
+  --green: #39ff14;
+  --green-dim: #1a8a0a;
+  --magenta: #ff00ff;
+  --text: #d0d0d0;
+  --text-dim: #666;
+  --border: rgba(0, 255, 213, 0.25);
+  --glow-cyan: 0 0 8px rgba(0, 255, 213, 0.3);
+  --glow-green: 0 0 8px rgba(57, 255, 20, 0.3);
+  --font-mono: var(--font-geist-mono), "Courier New", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cyan-dim);
+  border-radius: 3px;
+}
+
+/* ── Header ── */
+.site-header {
+  text-align: center;
+  padding: 32px 16px 16px;
+}
+
+.site-title {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--cyan);
+  text-shadow: 0 0 20px rgba(0, 255, 213, 0.5), 0 0 40px rgba(0, 255, 213, 0.2);
+  margin: 0;
+}
+
+.site-tagline {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  font-style: italic;
+  letter-spacing: 1px;
+}
+
+/* ── Cyber Panel ── */
+.cyber-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px;
+  box-shadow: var(--glow-cyan);
+}
+
+/* ── CRT Terminal ── */
+.crt-terminal {
+  background: #050508;
+  border: 1px solid var(--green-dim);
+  border-radius: 4px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--glow-green);
+}
+
+.crt-terminal::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.crt-terminal .crt-content {
+  position: relative;
+  z-index: 0;
+}
+
+.crt-header {
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+  text-shadow: 0 0 6px rgba(57, 255, 20, 0.4);
+}
+
+.crt-text {
+  color: var(--green);
+  text-shadow: 0 0 4px rgba(57, 255, 20, 0.3);
+}
+
+/* ── Artifact Cards (inside CRT) ── */
+.artifact-card {
+  border: 1px solid rgba(57, 255, 20, 0.15);
+  border-radius: 2px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.artifact-card:hover {
+  border-color: rgba(57, 255, 20, 0.4);
+  background: rgba(57, 255, 20, 0.03);
+}
+
+.artifact-card.expanded {
+  border-color: var(--green-dim);
+  background: rgba(57, 255, 20, 0.05);
+}
+
+.artifact-title {
+  color: var(--green);
+  font-weight: 600;
+  font-size: 14px;
+  text-shadow: 0 0 4px rgba(57, 255, 20, 0.3);
+}
+
+.artifact-meta {
+  font-size: 11px;
+  color: rgba(57, 255, 20, 0.5);
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.artifact-channel {
+  font-size: 11px;
+  color: rgba(57, 255, 20, 0.4);
+  margin-top: 2px;
+}
+
+.artifact-body {
+  white-space: pre-wrap;
+  margin: 12px 0 0;
+  line-height: 1.6;
+  font-size: 13px;
+  color: rgba(57, 255, 20, 0.85);
+}
+
+.artifact-divider {
+  border: none;
+  border-top: 1px solid rgba(57, 255, 20, 0.15);
+  margin: 14px 0;
+}
+
+.artifact-section-label {
+  font-size: 12px;
+  margin: 0 0 6px;
+  color: rgba(57, 255, 20, 0.5);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.search-tag {
+  display: inline-block;
+  background: rgba(0, 255, 213, 0.08);
+  border: 1px solid rgba(0, 255, 213, 0.25);
+  border-radius: 3px;
+  padding: 2px 8px;
+  margin: 2px 4px 2px 0;
+  font-size: 11px;
+  color: var(--cyan);
+}
+
+.artifact-link {
+  color: var(--cyan);
+  text-decoration: none;
+  font-size: 12px;
+}
+.artifact-link:hover {
+  text-shadow: var(--glow-cyan);
+}
+
+.artifact-monologue {
+  white-space: pre-wrap;
+  margin: 0;
+  opacity: 0.7;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(57, 255, 20, 0.6);
+}
+
+/* ── Cyber Buttons ── */
+.cyber-button {
+  padding: 10px 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: rgba(0, 255, 213, 0.04);
+  color: var(--cyan);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.cyber-button:hover:not(:disabled) {
+  background: rgba(0, 255, 213, 0.1);
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.cyber-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Cyber Input ── */
+.cyber-input {
+  padding: 8px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.cyber-input::placeholder {
+  color: var(--cyan-dim);
+  opacity: 0.5;
+}
+
+.cyber-input:focus {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+/* ── Cyber Slider ── */
+.cyber-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: rgba(0, 255, 213, 0.15);
+  border-radius: 2px;
+  outline: none;
+}
+
+.cyber-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--cyan);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 255, 213, 0.5);
+}
+
+.cyber-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--cyan);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(0, 255, 213, 0.5);
+}
+
+/* ── Section Labels ── */
+.section-label {
+  font-size: 12px;
+  color: var(--cyan-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* ── Layout ── */
+.page-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Beam + Crystal Row ── */
+.beam-crystal-row {
+  position: relative;
+  width: 100%;
+  height: 220px;
+}
+
+.beam-crystal-row > svg {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  transform: translateY(-50%);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.beam-crystal-row > svg a,
+.beam-crystal-row > svg text {
+  pointer-events: auto;
+}
+
+.crystal-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+/* ── Controls Row: [voting] [temp+seed] ── */
+.controls-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.controls-row > .cyber-panel:not(.voting-box) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Voting Box ── */
+.voting-box {
+  width: 170px;
+  flex-shrink: 0;
+  padding: 14px !important;
+}
+
+.vote-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px !important;
+  font-size: 12px !important;
+}
+
+.vote-count {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-left: 6px;
+}
+
+/* ── Animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; box-shadow: 0 0 8px rgba(0, 255, 213, 0.2); }
+  50% { opacity: 0.7; box-shadow: 0 0 20px rgba(0, 255, 213, 0.5); }
+}
+
+@keyframes beam-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .site-title {
+    font-size: 24px;
+    letter-spacing: 4px;
+  }
+
+  .controls-row {
+    flex-direction: column;
+  }
+
+  .voting-box {
+    width: 100%;
+  }
+
+  .vote-btn {
+    font-size: 13px !important;
+  }
+
+  .cyber-panel,
+  .crt-terminal {
+    padding: 14px;
+  }
 }

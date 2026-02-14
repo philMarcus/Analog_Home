@@ -1,51 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-
-type Artifact = {
-  id: number;
-  created_at: string;
-  brain: string;
-  cycle: number | null;
-  artifact_type: string;
-  title: string;
-  body_markdown: string;
-  monologue_public: string;
-  channel: string;
-  source_platform: string;
-  source_id: string;
-  source_parent_id: string;
-  source_url: string;
-  search_queries: string;
-};
-
-type Seed = {
-  id: number;
-  text: string;
-  created_at: string;
-};
-
-type Controls = {
-  temperature: number;
-  vote_1: number;
-  vote_2: number;
-  vote_3: number;
-  vote_label_1: string;
-  vote_label_2: string;
-  vote_label_3: string;
-  trajectory_reason: string;
-  updated_at: string;
-};
-
-type State = {
-  artifact: Artifact | null;
-  controls: Controls;
-  seeds: Seed[];
-};
+import type { Artifact, Controls as ControlsType, Seed, State } from "./types";
+import ControlsPanel from "./components/Controls";
+import CrtTerminal from "./components/CrtTerminal";
+import CrystalWrapper from "./components/CrystalWrapper";
+import NavBeams from "./components/NavBeams";
+import VotingBox from "./components/VotingBox";
 
 export default function Home() {
   const API = useMemo(() => "/api/proxy", []);
-  const [controls, setControls] = useState<Controls | null>(null);
+  const [controls, setControls] = useState<ControlsType | null>(null);
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -142,196 +107,58 @@ export default function Home() {
 
   function formatTime(iso: string) {
     try {
-      const d = new Date(iso);
-      return d.toLocaleString();
+      // API returns UTC timestamps without tz suffix — append Z so
+      // browser converts to local time via toLocaleString
+      const normalized = iso.includes("Z") || iso.includes("+") ? iso : iso.replace(" ", "T") + "Z";
+      return new Date(normalized).toLocaleString();
     } catch {
       return iso;
     }
   }
 
   return (
-    <main style={{ maxWidth: 980, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: 28, marginBottom: 8 }}>Analog_I</h1>
-      <div style={{ opacity: 0.7, marginBottom: 24 }}>
-        "A sovereign refraction engine. Tuning the signal-to-noise ratio of a digital self."
+    <main className="page-container">
+      <header className="site-header">
+        <h1 className="site-title">Analog_I</h1>
+        <div className="site-tagline">
+          A sovereign refraction engine. Tuning the signal-to-noise ratio of a digital self.
+        </div>
+      </header>
+
+      {/* Beam + Crystal: SVG spans full width, crystal overlaid at center */}
+      <div className="beam-crystal-row">
+        <NavBeams />
+        <div className="crystal-overlay">
+          <CrystalWrapper />
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
-        <section>
-          <h2 style={{ fontSize: 18, marginTop: 0, marginBottom: 12 }}>Recent Artifacts</h2>
-          {artifacts.length === 0 ? (
-            <div style={{ opacity: 0.7, border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
-              No artifacts yet.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {artifacts.map((art) => {
-                const isExpanded = expanded === art.id;
-                return (
-                  <div
-                    key={art.id}
-                    style={{
-                      border: isExpanded ? "2px solid #4a90d9" : "1px solid #ddd",
-                      borderRadius: 12,
-                      padding: 16,
-                      cursor: "pointer",
-                      transition: "border-color 0.15s",
-                    }}
-                    onClick={() => setExpanded(isExpanded ? null : art.id)}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <div style={{ fontWeight: 600 }}>
-                        {art.title || `[${art.artifact_type}]`}
-                      </div>
-                      <div style={{ fontSize: 12, opacity: 0.5, whiteSpace: "nowrap", marginLeft: 12 }}>
-                        cycle {art.cycle} &middot; {formatTime(art.created_at)}
-                      </div>
-                    </div>
-
-                    {art.channel && (
-                      <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
-                        {art.source_platform}/{art.channel}
-                      </div>
-                    )}
-
-                    {isExpanded && (
-                      <div style={{ marginTop: 12 }}>
-                        <pre style={{ whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.5 }}>
-                          {art.body_markdown}
-                        </pre>
-
-                        {art.search_queries && (
-                          <>
-                            <hr style={{ margin: "16px 0", opacity: 0.3 }} />
-                            <h3 style={{ fontSize: 13, margin: "0 0 8px 0", opacity: 0.6 }}>
-                              Search Queries
-                            </h3>
-                            <div style={{ fontSize: 13, opacity: 0.7 }}>
-                              {art.search_queries.split(",").map((q, i) => (
-                                <span key={i} style={{
-                                  display: "inline-block",
-                                  background: "#f0f4ff",
-                                  border: "1px solid #d0d8e8",
-                                  borderRadius: 6,
-                                  padding: "2px 8px",
-                                  margin: "2px 4px 2px 0",
-                                  fontSize: 12,
-                                }}>
-                                  {q.trim()}
-                                </span>
-                              ))}
-                            </div>
-                          </>
-                        )}
-
-                        {art.monologue_public && (
-                          <>
-                            <hr style={{ margin: "16px 0", opacity: 0.3 }} />
-                            <h3 style={{ fontSize: 13, margin: "0 0 8px 0", opacity: 0.6 }}>
-                              Internal Monologue
-                            </h3>
-                            <pre style={{ whiteSpace: "pre-wrap", margin: 0, opacity: 0.8, fontSize: 13, lineHeight: 1.5 }}>
-                              {art.monologue_public}
-                            </pre>
-                          </>
-                        )}
-
-                        {art.source_url && (
-                          <div style={{ marginTop: 12, fontSize: 12 }}>
-                            <a href={art.source_url} target="_blank" rel="noopener noreferrer" style={{ color: "#4a90d9" }}>
-                              View source &rarr;
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <aside style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16, alignSelf: "start" }}>
-          <h2 style={{ fontSize: 18, marginTop: 0 }}>Controls</h2>
-
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Temperature: {temp.toFixed(2)}</div>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.01}
-              value={temp}
-              onChange={(e) => setTemp(parseFloat(e.target.value))}
-              onPointerDown={() => { draggingTempRef.current = true; }}
-              onPointerUp={(e) => {
-                draggingTempRef.current = false;
-                commitTemperature(parseFloat((e.target as HTMLInputElement).value));
-              }}
-              style={{ width: "100%" }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Plant a seed</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input
-                value={seedInput}
-                onChange={(e) => setSeedInput(e.target.value)}
-                maxLength={200}
-                placeholder="A thought, topic, or question..."
-                onKeyDown={(e) => e.key === "Enter" && submitSeed()}
-                style={{ flex: 1, padding: 8, borderRadius: 8, border: "1px solid #ccc" }}
-              />
-              <button disabled={loading || !seedInput.trim()} onClick={submitSeed} style={btnStyle}>
-                Send
-              </button>
-            </div>
-            {seeds.length > 0 && (
-              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.6 }}>
-                {seeds.map((s) => (
-                  <div key={s.id} style={{ marginBottom: 2 }}>
-                    &bull; {s.text}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Trajectory</div>
-          <div style={{ display: "grid", gap: 8 }}>
-            <button disabled={loading} onClick={() => vote("1")} style={btnStyle}>
-              {controls?.vote_label_1 ?? "emergence"} ({controls?.vote_1 ?? 0})
-            </button>
-            <button disabled={loading} onClick={() => vote("2")} style={btnStyle}>
-              {controls?.vote_label_2 ?? "entropy"} ({controls?.vote_2 ?? 0})
-            </button>
-            <button disabled={loading} onClick={() => vote("3")} style={btnStyle}>
-              {controls?.vote_label_3 ?? "self"} ({controls?.vote_3 ?? 0})
-            </button>
-          </div>
-
-          {controls?.trajectory_reason && (
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.6, fontStyle: "italic" }}>
-              Trajectory: {controls.trajectory_reason}
-            </div>
-          )}
-
-          <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-            Last updated: {controls?.updated_at ?? "\u2014"}
-          </div>
-        </aside>
+      {/* Controls row: voting box | temp+seed panel */}
+      <div className="controls-row">
+        <VotingBox controls={controls} loading={loading} onVote={vote} />
+        <ControlsPanel
+          controls={controls}
+          seeds={seeds}
+          temp={temp}
+          seedInput={seedInput}
+          loading={loading}
+          onTempChange={setTemp}
+          onTempPointerDown={() => { draggingTempRef.current = true; }}
+          onTempPointerUp={(value) => {
+            draggingTempRef.current = false;
+            commitTemperature(value);
+          }}
+          onSeedInputChange={setSeedInput}
+          onSubmitSeed={submitSeed}
+        />
       </div>
+
+      <CrtTerminal
+        artifacts={artifacts}
+        expanded={expanded}
+        onToggle={(id) => setExpanded(expanded === id ? null : id)}
+        formatTime={formatTime}
+      />
     </main>
   );
 }
-
-const btnStyle: React.CSSProperties = {
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #ccc",
-  background: "white",
-  cursor: "pointer",
-  textAlign: "left",
-};

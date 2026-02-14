@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Octahedron wireframe -->
+  <!-- Top point: 16,2  Bottom point: 16,30  Left: 3,16  Right: 29,16 -->
+  <!-- Front-left: 9,16  Front-right: 23,16 -->
+  <g fill="none" stroke="#39ff14" stroke-width="1.5" stroke-linejoin="round" opacity="0.9">
+    <!-- Top edges -->
+    <line x1="16" y1="2" x2="3" y2="16"/>
+    <line x1="16" y1="2" x2="29" y2="16"/>
+    <line x1="16" y1="2" x2="16" y2="16"/>
+    <!-- Bottom edges -->
+    <line x1="16" y1="30" x2="3" y2="16"/>
+    <line x1="16" y1="30" x2="29" y2="16"/>
+    <line x1="16" y1="30" x2="16" y2="16"/>
+    <!-- Equator -->
+    <line x1="3" y1="16" x2="16" y2="16"/>
+    <line x1="16" y1="16" x2="29" y2="16"/>
+    <!-- Hidden back edges (dimmer) -->
+    <line x1="3" y1="16" x2="29" y2="16" opacity="0.3"/>
+  </g>
+</svg>

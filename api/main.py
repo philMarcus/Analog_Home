@@ -291,6 +291,23 @@ def set_trajectory(req: SetTrajectoryRequest):
         return state
 
 
+@app.post("/default-temperature", response_model=StateOut)
+def set_default_temperature(req: dict):
+    """Set the agent's preferred default temperature (the value user nudges decay toward)."""
+    t = req.get("temperature")
+    if t is None:
+        raise HTTPException(status_code=400, detail="temperature required")
+    t = max(0.0, min(2.0, float(t)))
+    with get_pool().connection() as conn:
+        conn.execute(
+            "UPDATE controls SET default_temperature = %s, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
+            [t]
+        )
+        state = _read_state(conn)
+        conn.commit()
+        return state
+
+
 @app.delete("/artifacts/{artifact_id}")
 def delete_artifact(artifact_id: int):
     """Delete a single artifact by ID."""

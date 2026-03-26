@@ -2,8 +2,8 @@
 
 const NAV_LINKS = [
   { label: "Archives", href: "/archives" },
-  { label: "About", href: "#" },
-  { label: "Source", href: "#" },
+  { label: "About", href: "/about" },
+  { label: "Source", href: "https://github.com/philMarcus/autonomy" },
 ];
 
 export default function NavBeams() {

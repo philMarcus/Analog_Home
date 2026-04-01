@@ -28,7 +28,7 @@ _pool: ConnectionPool | None = None
 def init_db() -> None:
     """Create tables (if needed) and open the connection pool."""
     global _pool
-    _pool = ConnectionPool(DATABASE_URL, min_size=0, max_size=10)
+    _pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=10)
 
     with _pool.connection() as conn:
         conn.execute("""

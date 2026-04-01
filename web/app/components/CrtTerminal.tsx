@@ -8,6 +8,7 @@ type Props = {
   onToggle: (id: number) => void;
   formatTime: (iso: string) => string;
   header?: string;
+  initialLoad?: boolean;
 };
 
 function isSystemArtifact(art: Artifact): boolean {
@@ -22,13 +23,17 @@ function systemLabel(art: Artifact): string {
   return "SYSTEM EVENT";
 }
 
-export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS" }: Props) {
+export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS", initialLoad = false }: Props) {
   return (
     <div className="crt-terminal">
       <div className="crt-content">
         <div className="crt-header">&gt; {header}</div>
 
-        {artifacts.length === 0 ? (
+        {initialLoad ? (
+          <div className="crt-text loading-pulse">
+            Establishing uplink...
+          </div>
+        ) : artifacts.length === 0 ? (
           <div className="crt-text" style={{ opacity: 0.5 }}>
             No transmissions received.
           </div>

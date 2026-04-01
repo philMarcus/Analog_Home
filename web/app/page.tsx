@@ -18,6 +18,7 @@ export default function Home() {
   const [temp, setTemp] = useState<number>(0.7);
   const [seedInput, setSeedInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [initialLoad, setInitialLoad] = useState<boolean>(true);
   const [seedError, setSeedError] = useState<string | null>(null);
   const [voteError, setVoteError] = useState<string | null>(null);
   const [tempError, setTempError] = useState<string | null>(null);
@@ -49,6 +50,8 @@ export default function Home() {
       }
     } catch {
       // API unreachable — keep existing state
+    } finally {
+      if (initialLoad) setInitialLoad(false);
     }
   }
 
@@ -181,6 +184,7 @@ export default function Home() {
         expanded={expanded}
         onToggle={(id) => setExpanded(expanded === id ? null : id)}
         formatTime={formatTime}
+        initialLoad={initialLoad}
       />
     </main>
   );

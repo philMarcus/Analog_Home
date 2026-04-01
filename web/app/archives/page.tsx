@@ -56,7 +56,7 @@ export default function ArchivesPage() {
       {loading ? (
         <div className="crt-terminal">
           <div className="crt-content">
-            <div className="crt-text" style={{ opacity: 0.5 }}>Loading transmissions...</div>
+            <div className="crt-text loading-pulse">Establishing uplink...</div>
           </div>
         </div>
       ) : (

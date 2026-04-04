@@ -169,8 +169,9 @@ def get_artifacts_count(run_id: Optional[str] = Query(default=None)):
 
 @app.get("/runs")
 def get_runs():
-    """List all runs with summary info (most recent first)."""
+    """List all runs with summary info (most recent first), including first artifact title."""
     with get_pool().connection() as conn:
+        # Get run metadata
         rows = conn.execute("""
           SELECT run_id,
                  brain,
@@ -184,18 +185,32 @@ def get_runs():
           GROUP BY run_id, brain
           ORDER BY MIN(created_at) DESC
         """).fetchall()
-        return [
-            {
-                "run_id": r[0],
+
+        runs = []
+        for r in rows:
+            run_id = r[0]
+            # Get title of first non-system artifact in this run
+            title_row = conn.execute("""
+              SELECT title FROM artifacts
+              WHERE run_id = %s
+                AND artifact_type NOT LIKE 'system_%%'
+                AND title != ''
+              ORDER BY created_at ASC
+              LIMIT 1
+            """, [run_id]).fetchone()
+            first_title = title_row[0] if title_row else ""
+
+            runs.append({
+                "run_id": run_id,
                 "brain": r[1],
                 "artifact_count": int(r[2]),
                 "started_at": str(r[3]),
                 "last_artifact_at": str(r[4]),
                 "first_cycle": r[5],
                 "last_cycle": r[6],
-            }
-            for r in rows
-        ]
+                "first_title": first_title,
+            })
+        return runs
 
 
 def _get_client_ip(request: Request) -> str:

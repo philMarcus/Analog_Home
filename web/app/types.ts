@@ -25,6 +25,7 @@ export type Run = {
   last_artifact_at: string;
   first_cycle: number | null;
   last_cycle: number | null;
+  first_title: string;
 };
 
 export type Seed = {

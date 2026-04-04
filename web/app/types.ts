@@ -14,6 +14,17 @@ export type Artifact = {
   source_url: string;
   search_queries: string;
   temperature: number | null;
+  run_id: string;
+};
+
+export type Run = {
+  run_id: string;
+  brain: string;
+  artifact_count: number;
+  started_at: string;
+  last_artifact_at: string;
+  first_cycle: number | null;
+  last_cycle: number | null;
 };
 
 export type Seed = {

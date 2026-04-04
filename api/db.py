@@ -72,8 +72,14 @@ def init_db() -> None:
                 source_parent_id VARCHAR DEFAULT '',
                 source_url VARCHAR DEFAULT '',
                 search_queries VARCHAR DEFAULT '',
-                temperature DOUBLE PRECISION
+                temperature DOUBLE PRECISION,
+                run_id VARCHAR DEFAULT ''
             )
+        """)
+
+        # Migration: add run_id column if missing (existing installs)
+        conn.execute("""
+            ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS run_id VARCHAR DEFAULT ''
         """)
 
         conn.execute("""

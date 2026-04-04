@@ -24,6 +24,7 @@ class PublishRequest(BaseModel):
     source_url: str = Field(default="", max_length=500)
     search_queries: str = Field(default="", max_length=2000)
     temperature: Optional[float] = None
+    run_id: str = Field(default="", max_length=64)
 
 
 app = FastAPI(title="Analog I API")
@@ -62,7 +63,7 @@ def healthz():
 _ART_COLS = """id, created_at, brain, cycle, artifact_type,
              title, body_markdown, monologue_public,
              channel, source_platform, source_id, source_parent_id, source_url,
-             search_queries, temperature"""
+             search_queries, temperature, run_id"""
 
 
 def _read_state(conn):
@@ -132,26 +133,69 @@ def _art_row_to_dict(row) -> dict:
         "source_url": row[12] or "",
         "search_queries": row[13] or "" if len(row) > 13 else "",
         "temperature": float(row[14]) if len(row) > 14 and row[14] is not None else None,
+        "run_id": row[15] or "" if len(row) > 15 else "",
     }
 
 
 @app.get("/artifacts", response_model=List[ArtifactOut])
-def get_artifacts(limit: int = Query(default=5, ge=1, le=50), offset: int = Query(default=0, ge=0)):
+def get_artifacts(
+    limit: int = Query(default=5, ge=1, le=50),
+    offset: int = Query(default=0, ge=0),
+    run_id: Optional[str] = Query(default=None),
+):
     with get_pool().connection() as conn:
-        rows = conn.execute(f"""
-          SELECT {_ART_COLS}
-          FROM artifacts
-          ORDER BY created_at DESC
-          LIMIT %s OFFSET %s
-        """, [limit, offset]).fetchall()
+        if run_id:
+            rows = conn.execute(f"""
+              SELECT {_ART_COLS} FROM artifacts
+              WHERE run_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s
+            """, [run_id, limit, offset]).fetchall()
+        else:
+            rows = conn.execute(f"""
+              SELECT {_ART_COLS} FROM artifacts
+              ORDER BY created_at DESC LIMIT %s OFFSET %s
+            """, [limit, offset]).fetchall()
         return [_art_row_to_dict(r) for r in rows]
 
 
 @app.get("/artifacts/count")
-def get_artifacts_count():
+def get_artifacts_count(run_id: Optional[str] = Query(default=None)):
     with get_pool().connection() as conn:
-        count = conn.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
+        if run_id:
+            count = conn.execute("SELECT COUNT(*) FROM artifacts WHERE run_id = %s", [run_id]).fetchone()[0]
+        else:
+            count = conn.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
         return {"count": int(count)}
+
+
+@app.get("/runs")
+def get_runs():
+    """List all runs with summary info (most recent first)."""
+    with get_pool().connection() as conn:
+        rows = conn.execute("""
+          SELECT run_id,
+                 brain,
+                 COUNT(*) AS artifact_count,
+                 MIN(created_at) AS started_at,
+                 MAX(created_at) AS last_artifact_at,
+                 MIN(cycle) AS first_cycle,
+                 MAX(cycle) AS last_cycle
+          FROM artifacts
+          WHERE run_id != '' AND run_id IS NOT NULL
+          GROUP BY run_id, brain
+          ORDER BY MIN(created_at) DESC
+        """).fetchall()
+        return [
+            {
+                "run_id": r[0],
+                "brain": r[1],
+                "artifact_count": int(r[2]),
+                "started_at": str(r[3]),
+                "last_artifact_at": str(r[4]),
+                "first_cycle": r[5],
+                "last_cycle": r[6],
+            }
+            for r in rows
+        ]
 
 
 def _get_client_ip(request: Request) -> str:
@@ -328,20 +372,21 @@ def publish(req: PublishRequest):
                 """INSERT INTO artifacts
                    (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
                     channel, source_platform, source_id, source_parent_id, source_url,
-                    search_queries, temperature)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    search_queries, temperature, run_id)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (id) DO UPDATE SET
                     brain=EXCLUDED.brain, cycle=EXCLUDED.cycle, artifact_type=EXCLUDED.artifact_type,
                     title=EXCLUDED.title, body_markdown=EXCLUDED.body_markdown,
                     monologue_public=EXCLUDED.monologue_public, channel=EXCLUDED.channel,
                     source_platform=EXCLUDED.source_platform, source_id=EXCLUDED.source_id,
                     source_parent_id=EXCLUDED.source_parent_id, source_url=EXCLUDED.source_url,
-                    search_queries=EXCLUDED.search_queries, temperature=EXCLUDED.temperature;""",
+                    search_queries=EXCLUDED.search_queries, temperature=EXCLUDED.temperature,
+                    run_id=EXCLUDED.run_id;""",
                 [int(req.id), req.brain, req.cycle, req.artifact_type,
                  req.title, req.body_markdown, req.monologue_public,
                  req.channel, req.source_platform, req.source_id,
                  req.source_parent_id, req.source_url, req.search_queries,
-                 req.temperature],
+                 req.temperature, req.run_id],
             )
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))

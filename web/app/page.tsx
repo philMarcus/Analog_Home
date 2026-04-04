@@ -26,22 +26,31 @@ export default function Home() {
 
   async function fetchData() {
     try {
-      const [stateRes, artsRes] = await Promise.all([
+      const [stateRes, runsRes] = await Promise.all([
         fetch(`${API}/state`),
-        fetch(`${API}/artifacts?limit=25`),
+        fetch(`${API}/runs`),
       ]);
-      if (!stateRes.ok || !artsRes.ok) return;
+      if (!stateRes.ok) return;
       const stateData = (await stateRes.json()) as State;
-      const artsData = (await artsRes.json()) as Artifact[];
       setControls(stateData.controls);
       if (!draggingTempRef.current) {
         setTemp(stateData.controls.temperature);
       }
       setSeeds(stateData.seeds);
+
+      // Fetch artifacts from the latest run only
+      let artsUrl = `${API}/artifacts?limit=25`;
+      if (runsRes.ok) {
+        const runsData = await runsRes.json();
+        if (runsData.length > 0 && runsData[0].run_id) {
+          artsUrl = `${API}/artifacts?limit=25&run_id=${runsData[0].run_id}`;
+        }
+      }
+      const artsRes = await fetch(artsUrl);
+      if (!artsRes.ok) return;
+      const artsData = (await artsRes.json()) as Artifact[];
       if (artsData.length > 0) {
         setArtifacts(artsData);
-      }
-      if (artsData.length > 0) {
         const topId = artsData[0].id;
         if (lastSeenTopIdRef.current === null || topId !== lastSeenTopIdRef.current) {
           setExpanded(topId);

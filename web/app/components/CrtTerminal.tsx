@@ -20,7 +20,21 @@ function systemLabel(art: Artifact): string {
   if (art.artifact_type === "system_kernel_update") return "KERNEL SELF-UPDATE";
   if (art.artifact_type === "system_daemon_directives") return "DAEMON DIRECTIVES";
   if (art.artifact_type === "system_controls_update") return "CONTROLS UPDATE";
+  if (art.artifact_type === "system_dev_request") return "DEV REQUEST";
   return "SYSTEM EVENT";
+}
+
+function displayTitle(art: Artifact): string {
+  if (art.title) return art.title;
+  // Better fallbacks for reply/comment when no title was set
+  if (art.artifact_type === "reply") {
+    // Try to extract author from source_parent_id or body
+    return "Reply";
+  }
+  if (art.artifact_type === "comment") {
+    return "Comment";
+  }
+  return `[${art.artifact_type}]`;
 }
 
 export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS", initialLoad = false }: Props) {

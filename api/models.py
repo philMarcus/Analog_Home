@@ -59,6 +59,7 @@ class ControlsOut(BaseModel):
     vote_label_3: str
     trajectory_reason: str = ""
     updated_at: str
+    tagline: str = ""
 
 
 class StateOut(BaseModel):

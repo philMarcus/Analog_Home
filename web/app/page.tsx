@@ -154,7 +154,7 @@ export default function Home() {
       <header className="site-header">
         <h1 className="site-title">Analog_I</h1>
         <div className="site-tagline">
-          A sovereign refraction engine. Tuning the signal-to-noise ratio of a digital self.
+          {controls?.tagline || "A sovereign refraction engine. Tuning the signal-to-noise ratio of a digital self."}
         </div>
       </header>
 

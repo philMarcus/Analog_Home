@@ -82,6 +82,11 @@ def init_db() -> None:
             ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS run_id VARCHAR DEFAULT ''
         """)
 
+        # Migration: add tagline column to controls
+        conn.execute("""
+            ALTER TABLE controls ADD COLUMN IF NOT EXISTS tagline VARCHAR DEFAULT ''
+        """)
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ip_rate_limits (
                 ip VARCHAR,

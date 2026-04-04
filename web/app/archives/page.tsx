@@ -109,8 +109,11 @@ export default function ArchivesPage() {
   const [loading, setLoading] = useState(true);
   const [showMinor, setShowMinor] = useState(false);
 
-  const majorRuns = runs.filter((r) => r.artifact_count >= MAJOR_RUN_THRESHOLD);
-  const minorRuns = runs.filter((r) => r.artifact_count < MAJOR_RUN_THRESHOLD);
+  // First run is always "Present Run" (most recent), rest split by size
+  const presentRun = runs.length > 0 ? runs[0] : null;
+  const pastRuns = runs.slice(1);
+  const majorRuns = pastRuns.filter((r) => r.artifact_count >= MAJOR_RUN_THRESHOLD);
+  const minorRuns = pastRuns.filter((r) => r.artifact_count < MAJOR_RUN_THRESHOLD);
 
   useEffect(() => {
     setLoading(true);
@@ -119,11 +122,10 @@ export default function ArchivesPage() {
         if (res.ok) {
           const data: Run[] = await res.json();
           setRuns(data);
-          // Auto-expand the most recent major run
-          const firstMajor = data.find((r) => r.artifact_count >= MAJOR_RUN_THRESHOLD);
-          if (firstMajor) {
-            setExpandedRun(firstMajor.run_id);
-            loadRunArtifacts(firstMajor.run_id);
+          // Auto-expand the present run
+          if (data.length > 0) {
+            setExpandedRun(data[0].run_id);
+            loadRunArtifacts(data[0].run_id);
           }
         }
       })
@@ -177,24 +179,43 @@ export default function ArchivesPage() {
         </div>
       ) : (
         <>
-          {/* Major runs */}
-          <div className="crt-terminal">
-            <div className="crt-content">
-              <div className="crt-header">&gt; RUNS</div>
-
-              {majorRuns.map((run) => (
+          {/* Present run — always at top */}
+          {presentRun && (
+            <div className="crt-terminal">
+              <div className="crt-content">
+                <div className="crt-header" style={{ color: "var(--green)" }}>&gt; PRESENT RUN</div>
                 <RunEntry
-                  key={run.run_id}
-                  run={run}
-                  isExpanded={expandedRun === run.run_id}
-                  onToggle={() => toggleRun(run.run_id)}
-                  artifacts={runArtifacts[run.run_id] || []}
+                  run={{ ...presentRun, first_title: "" }}
+                  isExpanded={expandedRun === presentRun.run_id}
+                  onToggle={() => toggleRun(presentRun.run_id)}
+                  artifacts={runArtifacts[presentRun.run_id] || []}
                   expandedArtifact={expandedArtifact}
                   onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
                 />
-              ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Past major runs */}
+          {majorRuns.length > 0 && (
+            <div className="crt-terminal" style={{ marginTop: 16 }}>
+              <div className="crt-content">
+                <div className="crt-header">&gt; PAST RUNS</div>
+
+                {majorRuns.map((run) => (
+                  <RunEntry
+                    key={run.run_id}
+                    run={run}
+                    isExpanded={expandedRun === run.run_id}
+                    onToggle={() => toggleRun(run.run_id)}
+                    artifacts={runArtifacts[run.run_id] || []}
+                    expandedArtifact={expandedArtifact}
+                    onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Minor runs (collapsed by default) */}
           {minorRuns.length > 0 && (

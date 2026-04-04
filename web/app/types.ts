@@ -45,6 +45,7 @@ export type Controls = {
   vote_label_3: string;
   trajectory_reason: string;
   updated_at: string;
+  tagline: string;
 };
 
 export type State = {

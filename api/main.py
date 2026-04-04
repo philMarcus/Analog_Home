@@ -70,7 +70,7 @@ def _read_state(conn):
     ctrl = conn.execute("""
       SELECT temperature, temp_set_at, vote_1, vote_2, vote_3,
              vote_label_1, vote_label_2, vote_label_3, updated_at,
-             trajectory_reason, default_temperature
+             trajectory_reason, default_temperature, tagline
       FROM controls WHERE id=1
     """).fetchone()
 
@@ -99,6 +99,7 @@ def _read_state(conn):
         "vote_label_3": ctrl[7] or "",
         "updated_at": str(ctrl[8]),
         "trajectory_reason": ctrl[9] or "",
+        "tagline": ctrl[11] or "" if len(ctrl) > 11 else "",
     }
 
     artifact = None
@@ -361,6 +362,24 @@ def set_default_temperature(req: dict):
         conn.execute(
             "UPDATE controls SET default_temperature = %s, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
             [t]
+        )
+        state = _read_state(conn)
+        conn.commit()
+        return state
+
+
+@app.post("/tagline", response_model=StateOut)
+def set_tagline(req: dict):
+    """Set the site tagline (agent-controlled subtitle)."""
+    text = (req.get("tagline") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="tagline required")
+    if len(text) > 200:
+        text = text[:200]
+    with get_pool().connection() as conn:
+        conn.execute(
+            "UPDATE controls SET tagline = %s, updated_at = CURRENT_TIMESTAMP WHERE id=1;",
+            [text]
         )
         state = _read_state(conn)
         conn.commit()

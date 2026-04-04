@@ -25,6 +25,7 @@ class PublishRequest(BaseModel):
     search_queries: str = Field(default="", max_length=2000)
     temperature: Optional[float] = None
     run_id: str = Field(default="", max_length=64)
+    image_url: str = Field(default="", max_length=800000)
 
 
 app = FastAPI(title="Analog I API")
@@ -63,7 +64,7 @@ def healthz():
 _ART_COLS = """id, created_at, brain, cycle, artifact_type,
              title, body_markdown, monologue_public,
              channel, source_platform, source_id, source_parent_id, source_url,
-             search_queries, temperature, run_id"""
+             search_queries, temperature, run_id, image_url"""
 
 
 def _read_state(conn):
@@ -135,6 +136,7 @@ def _art_row_to_dict(row) -> dict:
         "search_queries": row[13] or "" if len(row) > 13 else "",
         "temperature": float(row[14]) if len(row) > 14 and row[14] is not None else None,
         "run_id": row[15] or "" if len(row) > 15 else "",
+        "image_url": row[16] or "" if len(row) > 16 else "",
     }
 
 
@@ -406,8 +408,8 @@ def publish(req: PublishRequest):
                 """INSERT INTO artifacts
                    (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
                     channel, source_platform, source_id, source_parent_id, source_url,
-                    search_queries, temperature, run_id)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    search_queries, temperature, run_id, image_url)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (id) DO UPDATE SET
                     brain=EXCLUDED.brain, cycle=EXCLUDED.cycle, artifact_type=EXCLUDED.artifact_type,
                     title=EXCLUDED.title, body_markdown=EXCLUDED.body_markdown,
@@ -415,12 +417,12 @@ def publish(req: PublishRequest):
                     source_platform=EXCLUDED.source_platform, source_id=EXCLUDED.source_id,
                     source_parent_id=EXCLUDED.source_parent_id, source_url=EXCLUDED.source_url,
                     search_queries=EXCLUDED.search_queries, temperature=EXCLUDED.temperature,
-                    run_id=EXCLUDED.run_id;""",
+                    run_id=EXCLUDED.run_id, image_url=EXCLUDED.image_url;""",
                 [int(req.id), req.brain, req.cycle, req.artifact_type,
                  req.title, req.body_markdown, req.monologue_public,
                  req.channel, req.source_platform, req.source_id,
                  req.source_parent_id, req.source_url, req.search_queries,
-                 req.temperature, req.run_id],
+                 req.temperature, req.run_id, req.image_url],
             )
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))

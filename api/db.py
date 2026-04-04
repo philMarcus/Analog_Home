@@ -87,6 +87,11 @@ def init_db() -> None:
             ALTER TABLE controls ADD COLUMN IF NOT EXISTS tagline VARCHAR DEFAULT ''
         """)
 
+        # Migration: add image_url column to artifacts
+        conn.execute("""
+            ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT ''
+        """)
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ip_rate_limits (
                 ip VARCHAR,

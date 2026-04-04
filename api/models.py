@@ -46,6 +46,7 @@ class ArtifactOut(BaseModel):
     search_queries: str = ""
     temperature: Optional[float] = None
     run_id: str = ""
+    image_url: str = ""
 
 
 class ControlsOut(BaseModel):

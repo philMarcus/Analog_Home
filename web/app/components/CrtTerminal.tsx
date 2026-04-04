@@ -41,6 +41,8 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
           artifacts.map((art) => {
             const isExpanded = expanded === art.id;
             const isSys = isSystemArtifact(art);
+            // System artifacts are always shown expanded (they're short)
+            const showBody = isExpanded || isSys;
             return (
               <div
                 key={art.id}
@@ -50,6 +52,7 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                   <span className={isSys ? "system-event-title" : "artifact-title"}>
                     {isSys && <span className="system-event-badge">{systemLabel(art)}</span>}
+                    {art.image_url && <span className="image-badge">IMG</span>}
                     {art.title || `[${art.artifact_type}]`}
                   </span>
                   <span className="artifact-meta">
@@ -65,8 +68,27 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                   </div>
                 )}
 
-                {isExpanded && (
+                {/* Preview text for collapsed non-system artifacts */}
+                {!showBody && !isSys && art.body_markdown && (
+                  <div className="artifact-preview">
+                    {art.body_markdown.slice(0, 140)}{art.body_markdown.length > 140 ? "..." : ""}
+                  </div>
+                )}
+
+                {showBody && (
                   <div>
+                    {/* Image display */}
+                    {art.image_url && (
+                      <div className="artifact-image-container">
+                        <img
+                          src={art.image_url}
+                          alt={art.title || "Generated image"}
+                          className="artifact-image"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+
                     <pre className={isSys ? "system-event-body" : "artifact-body"}>{art.body_markdown}</pre>
 
                     {!isSys && art.search_queries && (

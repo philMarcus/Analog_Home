@@ -43,6 +43,8 @@ function RunEntry({
   isExpanded,
   onToggle,
   artifacts,
+  hasMore,
+  onLoadMore,
   expandedArtifact,
   onArtifactToggle,
 }: {
@@ -50,6 +52,8 @@ function RunEntry({
   isExpanded: boolean;
   onToggle: () => void;
   artifacts: Artifact[];
+  hasMore: boolean;
+  onLoadMore: () => void;
   expandedArtifact: number | null;
   onArtifactToggle: (id: number) => void;
 }) {
@@ -87,13 +91,25 @@ function RunEntry({
               Loading...
             </div>
           ) : (
-            <CrtTerminal
-              artifacts={artifacts}
-              expanded={expandedArtifact}
-              onToggle={onArtifactToggle}
-              formatTime={formatTime}
-              header={`RUN ${run.run_id.slice(0, 8)}`}
-            />
+            <>
+              <CrtTerminal
+                artifacts={artifacts}
+                expanded={expandedArtifact}
+                onToggle={onArtifactToggle}
+                formatTime={formatTime}
+                header={`RUN ${run.run_id.slice(0, 8)} — showing ${artifacts.length} of ${run.artifact_count}`}
+              />
+              {hasMore && (
+                <div style={{ textAlign: "center", padding: "8px 0" }}>
+                  <button
+                    className="cyber-button"
+                    onClick={(e) => { e.stopPropagation(); onLoadMore(); }}
+                  >
+                    Load more ({run.artifact_count - artifacts.length} remaining)
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -101,10 +117,13 @@ function RunEntry({
   );
 }
 
+const PER_PAGE = 30;
+
 export default function ArchivesPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [runArtifacts, setRunArtifacts] = useState<Record<string, Artifact[]>>({});
+  const [runHasMore, setRunHasMore] = useState<Record<string, boolean>>({});
   const [expandedArtifact, setExpandedArtifact] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showMinor, setShowMinor] = useState(false);
@@ -122,25 +141,32 @@ export default function ArchivesPage() {
         if (res.ok) {
           const data: Run[] = await res.json();
           setRuns(data);
-          // Auto-expand the present run
           if (data.length > 0) {
             setExpandedRun(data[0].run_id);
-            loadRunArtifacts(data[0].run_id);
+            loadRunArtifacts(data[0].run_id, 0);
           }
         }
       })
       .finally(() => setLoading(false));
   }, []);
 
-  function loadRunArtifacts(runId: string) {
-    if (runArtifacts[runId]) return;
-    fetch(`${API}/artifacts?run_id=${runId}&limit=50`)
+  function loadRunArtifacts(runId: string, offset: number) {
+    fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${offset}`)
       .then(async (res) => {
         if (res.ok) {
           const arts: Artifact[] = await res.json();
-          setRunArtifacts((prev) => ({ ...prev, [runId]: arts }));
+          setRunArtifacts((prev) => ({
+            ...prev,
+            [runId]: offset === 0 ? arts : [...(prev[runId] || []), ...arts],
+          }));
+          setRunHasMore((prev) => ({ ...prev, [runId]: arts.length >= PER_PAGE }));
         }
       });
+  }
+
+  function loadMore(runId: string) {
+    const current = runArtifacts[runId] || [];
+    loadRunArtifacts(runId, current.length);
   }
 
   function toggleRun(runId: string) {
@@ -150,7 +176,9 @@ export default function ArchivesPage() {
     } else {
       setExpandedRun(runId);
       setExpandedArtifact(null);
-      loadRunArtifacts(runId);
+      if (!runArtifacts[runId]) {
+        loadRunArtifacts(runId, 0);
+      }
     }
   }
 
@@ -189,6 +217,8 @@ export default function ArchivesPage() {
                   isExpanded={expandedRun === presentRun.run_id}
                   onToggle={() => toggleRun(presentRun.run_id)}
                   artifacts={runArtifacts[presentRun.run_id] || []}
+                  hasMore={!!runHasMore[presentRun.run_id]}
+                  onLoadMore={() => loadMore(presentRun.run_id)}
                   expandedArtifact={expandedArtifact}
                   onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
                 />
@@ -209,6 +239,8 @@ export default function ArchivesPage() {
                     isExpanded={expandedRun === run.run_id}
                     onToggle={() => toggleRun(run.run_id)}
                     artifacts={runArtifacts[run.run_id] || []}
+                    hasMore={!!runHasMore[run.run_id]}
+                    onLoadMore={() => loadMore(run.run_id)}
                     expandedArtifact={expandedArtifact}
                     onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
                   />
@@ -239,6 +271,8 @@ export default function ArchivesPage() {
                     isExpanded={expandedRun === run.run_id}
                     onToggle={() => toggleRun(run.run_id)}
                     artifacts={runArtifacts[run.run_id] || []}
+                    hasMore={!!runHasMore[run.run_id]}
+                    onLoadMore={() => loadMore(run.run_id)}
                     expandedArtifact={expandedArtifact}
                     onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
                   />

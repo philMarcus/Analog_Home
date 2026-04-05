@@ -151,7 +151,7 @@ export default function ArchivesPage() {
   }, []);
 
   function loadRunArtifacts(runId: string, offset: number) {
-    fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${offset}`)
+    fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${offset}&sort=asc`)
       .then(async (res) => {
         if (res.ok) {
           const arts: Artifact[] = await res.json();

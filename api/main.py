@@ -145,17 +145,19 @@ def get_artifacts(
     limit: int = Query(default=5, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
     run_id: Optional[str] = Query(default=None),
+    sort: str = Query(default="desc"),
 ):
+    order = "ASC" if sort.lower() == "asc" else "DESC"
     with get_pool().connection() as conn:
         if run_id:
             rows = conn.execute(f"""
               SELECT {_ART_COLS} FROM artifacts
-              WHERE run_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s
+              WHERE run_id = %s ORDER BY created_at {order} LIMIT %s OFFSET %s
             """, [run_id, limit, offset]).fetchall()
         else:
             rows = conn.execute(f"""
               SELECT {_ART_COLS} FROM artifacts
-              ORDER BY created_at DESC LIMIT %s OFFSET %s
+              ORDER BY created_at {order} LIMIT %s OFFSET %s
             """, [limit, offset]).fetchall()
         return [_art_row_to_dict(r) for r in rows]
 

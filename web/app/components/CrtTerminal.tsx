@@ -21,6 +21,7 @@ function systemLabel(art: Artifact): string {
   if (art.artifact_type === "system_daemon_directives") return "DAEMON DIRECTIVES";
   if (art.artifact_type === "system_controls_update") return "CONTROLS UPDATE";
   if (art.artifact_type === "system_dev_request") return "DEV REQUEST";
+  if (art.artifact_type === "system_tagline_update") return "TAGLINE UPDATE";
   return "SYSTEM EVENT";
 }
 

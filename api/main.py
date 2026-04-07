@@ -162,6 +162,20 @@ def get_artifacts(
         return [_art_row_to_dict(r) for r in rows]
 
 
+@app.get("/latest-image")
+def get_latest_image():
+    """Return the most recent artifact that has an image_url."""
+    with get_pool().connection() as conn:
+        row = conn.execute(f"""
+          SELECT {_ART_COLS} FROM artifacts
+          WHERE image_url IS NOT NULL AND image_url != ''
+          ORDER BY created_at DESC LIMIT 1
+        """).fetchone()
+        if row:
+            return _art_row_to_dict(row)
+        return None
+
+
 @app.get("/artifacts/count")
 def get_artifacts_count(run_id: Optional[str] = Query(default=None)):
     with get_pool().connection() as conn:

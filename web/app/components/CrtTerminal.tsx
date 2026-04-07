@@ -22,12 +22,13 @@ function isPinkSystem(art: Artifact): boolean {
 
 /** Blue system events: cycle reports (directives, controls) */
 function isBlueSystem(art: Artifact): boolean {
-  return ["system_daemon_directives", "system_controls_update"].includes(art.artifact_type);
+  return ["system_daemon_directives", "system_controls_update", "system_cycle_report"].includes(art.artifact_type);
 }
 
 function systemLabel(art: Artifact): string {
   if (art.artifact_type === "system_run_start") return "RUN START";
   if (art.artifact_type === "system_kernel_update") return "KERNEL SELF-UPDATE";
+  if (art.artifact_type === "system_cycle_report") return "CYCLE REPORT";
   if (art.artifact_type === "system_daemon_directives") return "CYCLE REPORT";
   if (art.artifact_type === "system_controls_update") return "CONTROLS UPDATE";
   if (art.artifact_type === "system_dev_request") return "DEV REQUEST";

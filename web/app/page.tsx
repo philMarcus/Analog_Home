@@ -41,10 +41,11 @@ export default function Home() {
 
       // Fetch artifacts from the latest run only
       let artsUrl = `${API}/artifacts?limit=25`;
+      let allRuns: Array<{ run_id: string }> = [];
       if (runsRes.ok) {
-        const runsData = await runsRes.json();
-        if (runsData.length > 0 && runsData[0].run_id) {
-          artsUrl = `${API}/artifacts?limit=25&run_id=${runsData[0].run_id}`;
+        allRuns = await runsRes.json();
+        if (allRuns.length > 0 && allRuns[0].run_id) {
+          artsUrl = `${API}/artifacts?limit=25&run_id=${allRuns[0].run_id}`;
         }
       }
       const artsRes = await fetch(artsUrl);
@@ -57,18 +58,19 @@ export default function Home() {
           setExpanded(topId);
           lastSeenTopIdRef.current = topId;
         }
-        // Find latest image — check current artifacts first, then fetch broader if needed
+        // Find latest image — check current artifacts, then search recent runs
         const imgInCurrent = artsData.find((a) => a.image_url);
         if (imgInCurrent) {
           setLatestImage(imgInCurrent);
-        } else if (!latestImage) {
-          // Search across all recent artifacts (not just this run's top 25)
+        } else if (!latestImage && allRuns.length > 0) {
+          // Search across recent runs until we find an image
           try {
-            const imgRes = await fetch(`${API}/artifacts?limit=100`);
-            if (imgRes.ok) {
+            for (const run of allRuns.slice(0, 5)) {
+              const imgRes = await fetch(`${API}/artifacts?limit=50&run_id=${run.run_id}`);
+              if (!imgRes.ok) continue;
               const imgData = (await imgRes.json()) as Artifact[];
-              const found = imgData.find((a) => a.image_url);
-              if (found) setLatestImage(found);
+              const found = imgData.find((a: Artifact) => a.image_url);
+              if (found) { setLatestImage(found); break; }
             }
           } catch { /* ignore */ }
         }

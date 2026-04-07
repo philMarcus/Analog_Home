@@ -13,6 +13,7 @@ export default function Home() {
   const [controls, setControls] = useState<ControlsType | null>(null);
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [latestImage, setLatestImage] = useState<Artifact | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const lastSeenTopIdRef = useRef<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
@@ -55,6 +56,21 @@ export default function Home() {
         if (lastSeenTopIdRef.current === null || topId !== lastSeenTopIdRef.current) {
           setExpanded(topId);
           lastSeenTopIdRef.current = topId;
+        }
+        // Find latest image — check current artifacts first, then fetch broader if needed
+        const imgInCurrent = artsData.find((a) => a.image_url);
+        if (imgInCurrent) {
+          setLatestImage(imgInCurrent);
+        } else if (!latestImage) {
+          // Search across all recent artifacts (not just this run's top 25)
+          try {
+            const imgRes = await fetch(`${API}/artifacts?limit=100`);
+            if (imgRes.ok) {
+              const imgData = (await imgRes.json()) as Artifact[];
+              const found = imgData.find((a) => a.image_url);
+              if (found) setLatestImage(found);
+            }
+          } catch { /* ignore */ }
         }
       }
     } catch {
@@ -188,26 +204,22 @@ export default function Home() {
         />
       </div>
 
-      {/* Featured image: most recent image from this run */}
-      {(() => {
-        const latestImage = artifacts.find((a) => a.image_url);
-        if (!latestImage) return null;
-        return (
-          <div className="featured-image-section">
-            <img
-              src={latestImage.image_url}
-              alt={latestImage.title || "Generated image"}
-              className="featured-image"
-              loading="lazy"
-            />
-            {(latestImage.title || latestImage.body_markdown) && (
-              <div className="featured-image-caption">
-                {latestImage.title || latestImage.body_markdown.slice(0, 140)}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      {/* Featured image: most recent image */}
+      {latestImage && (
+        <div className="featured-image-section">
+          <img
+            src={latestImage.image_url}
+            alt={latestImage.title || "Generated image"}
+            className="featured-image"
+            loading="lazy"
+          />
+          {(latestImage.title || latestImage.body_markdown) && (
+            <div className="featured-image-caption">
+              {latestImage.title || latestImage.body_markdown.slice(0, 140)}
+            </div>
+          )}
+        </div>
+      )}
 
       <CrtTerminal
         artifacts={artifacts}

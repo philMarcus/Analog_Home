@@ -188,6 +188,27 @@ export default function Home() {
         />
       </div>
 
+      {/* Featured image: most recent image from this run */}
+      {(() => {
+        const latestImage = artifacts.find((a) => a.image_url);
+        if (!latestImage) return null;
+        return (
+          <div className="featured-image-section">
+            <img
+              src={latestImage.image_url}
+              alt={latestImage.title || "Generated image"}
+              className="featured-image"
+              loading="lazy"
+            />
+            {(latestImage.title || latestImage.body_markdown) && (
+              <div className="featured-image-caption">
+                {latestImage.title || latestImage.body_markdown.slice(0, 140)}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <CrtTerminal
         artifacts={artifacts}
         expanded={expanded}

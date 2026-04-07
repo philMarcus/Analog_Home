@@ -15,10 +15,20 @@ function isSystemArtifact(art: Artifact): boolean {
   return art.artifact_type.startsWith("system_");
 }
 
+/** Pink system events: major state changes */
+function isPinkSystem(art: Artifact): boolean {
+  return ["system_run_start", "system_kernel_update", "system_tagline_update"].includes(art.artifact_type);
+}
+
+/** Blue system events: cycle reports (directives, controls) */
+function isBlueSystem(art: Artifact): boolean {
+  return ["system_daemon_directives", "system_controls_update"].includes(art.artifact_type);
+}
+
 function systemLabel(art: Artifact): string {
   if (art.artifact_type === "system_run_start") return "RUN START";
   if (art.artifact_type === "system_kernel_update") return "KERNEL SELF-UPDATE";
-  if (art.artifact_type === "system_daemon_directives") return "DAEMON DIRECTIVES";
+  if (art.artifact_type === "system_daemon_directives") return "CYCLE REPORT";
   if (art.artifact_type === "system_controls_update") return "CONTROLS UPDATE";
   if (art.artifact_type === "system_dev_request") return "DEV REQUEST";
   if (art.artifact_type === "system_tagline_update") return "TAGLINE UPDATE";
@@ -26,16 +36,16 @@ function systemLabel(art: Artifact): string {
 }
 
 function displayTitle(art: Artifact): string {
-  if (art.title) return art.title;
-  // Better fallbacks for reply/comment when no title was set
-  if (art.artifact_type === "reply") {
-    // Try to extract author from source_parent_id or body
-    return "Reply";
+  const base = art.title || (
+    art.artifact_type === "reply" ? "Reply" :
+    art.artifact_type === "comment" ? "Comment" :
+    `[${art.artifact_type}]`
+  );
+  // Prefix Moltbook posts so they're distinguishable when scrolling
+  if (art.artifact_type === "post" && art.source_platform === "moltbook") {
+    return `Moltbook Post: ${base}`;
   }
-  if (art.artifact_type === "comment") {
-    return "Comment";
-  }
-  return `[${art.artifact_type}]`;
+  return base;
 }
 
 export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS", initialLoad = false }: Props) {
@@ -56,19 +66,22 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
           artifacts.map((art) => {
             const isExpanded = expanded === art.id;
             const isSys = isSystemArtifact(art);
+            const isPink = isPinkSystem(art);
+            const isBlue = isBlueSystem(art);
             // System artifacts are always shown expanded (they're short)
             const showBody = isExpanded || isSys;
+            const sysClass = isPink ? " system-event" : isBlue ? " system-event-blue" : isSys ? " system-event" : "";
             return (
               <div
                 key={art.id}
-                className={`artifact-card${isExpanded ? " expanded" : ""}${isSys ? " system-event" : ""}`}
+                className={`artifact-card${isExpanded ? " expanded" : ""}${sysClass}`}
                 onClick={() => onToggle(art.id)}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span className={isSys ? "system-event-title" : "artifact-title"}>
-                    {isSys && <span className="system-event-badge">{systemLabel(art)}</span>}
+                  <span className={isBlue ? "system-event-title-blue" : isSys ? "system-event-title" : "artifact-title"}>
+                    {isSys && <span className={isBlue ? "system-event-badge-blue" : "system-event-badge"}>{systemLabel(art)}</span>}
                     {art.image_url && <span className="image-badge">IMG</span>}
-                    {art.title || `[${art.artifact_type}]`}
+                    {displayTitle(art)}
                   </span>
                   <span className="artifact-meta">
                     cycle {art.cycle}
@@ -104,7 +117,7 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                       </div>
                     )}
 
-                    <pre className={isSys ? "system-event-body" : "artifact-body"}>{art.body_markdown}</pre>
+                    <pre className={isBlue ? "system-event-body-blue" : isSys ? "system-event-body" : "artifact-body"}>{art.body_markdown}</pre>
 
                     {!isSys && art.search_queries && (
                       <>

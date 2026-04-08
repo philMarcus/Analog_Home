@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Orbitron } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -30,6 +31,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistMono.variable} ${orbitron.variable}`}>
         {children}
+        <Analytics />
       </body>
     </html>
   );

@@ -176,6 +176,48 @@ def get_latest_image():
         return None
 
 
+@app.get("/audience")
+def get_audience_stats():
+    """Audience engagement summary for the agent's feedback loop."""
+    with get_pool().connection() as conn:
+        ctrl = conn.execute("""
+          SELECT vote_1, vote_2, vote_3, vote_label_1, vote_label_2, vote_label_3,
+                 updated_at, trajectory_reason
+          FROM controls WHERE id=1
+        """).fetchone()
+
+        # Seed stats
+        seed_count = conn.execute("SELECT COUNT(*) FROM seeds").fetchone()[0]
+        last_seed = conn.execute(
+            "SELECT created_at FROM seeds ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+
+        # Vote rate stats from ip_rate_limits
+        unique_voters = conn.execute(
+            "SELECT COUNT(DISTINCT ip) FROM ip_rate_limits WHERE action = 'vote'"
+        ).fetchone()[0]
+        unique_seeders = conn.execute(
+            "SELECT COUNT(DISTINCT ip) FROM ip_rate_limits WHERE action = 'seed'"
+        ).fetchone()[0]
+
+        total_votes = (int(ctrl[0]) + int(ctrl[1]) + int(ctrl[2])) if ctrl else 0
+
+        return {
+            "total_votes": total_votes,
+            "vote_1": int(ctrl[0]) if ctrl else 0,
+            "vote_2": int(ctrl[1]) if ctrl else 0,
+            "vote_3": int(ctrl[2]) if ctrl else 0,
+            "vote_label_1": ctrl[3] or "" if ctrl else "",
+            "vote_label_2": ctrl[4] or "" if ctrl else "",
+            "vote_label_3": ctrl[5] or "" if ctrl else "",
+            "last_vote_at": str(ctrl[6]) if ctrl else None,
+            "unique_voters": int(unique_voters),
+            "seeds_pending": int(seed_count),
+            "unique_seeders": int(unique_seeders),
+            "last_seed_at": str(last_seed[0]) if last_seed else None,
+        }
+
+
 @app.get("/artifacts/count")
 def get_artifacts_count(run_id: Optional[str] = Query(default=None)):
     with get_pool().connection() as conn:

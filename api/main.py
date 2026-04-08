@@ -190,44 +190,49 @@ def get_artifacts_count(run_id: Optional[str] = Query(default=None)):
 def get_runs():
     """List all runs with summary info (most recent first), including first artifact title."""
     with get_pool().connection() as conn:
-        # Get run metadata
         rows = conn.execute("""
-          SELECT run_id,
-                 brain,
-                 COUNT(*) AS artifact_count,
-                 MIN(created_at) AS started_at,
-                 MAX(created_at) AS last_artifact_at,
-                 MIN(cycle) AS first_cycle,
-                 MAX(cycle) AS last_cycle
-          FROM artifacts
-          WHERE run_id != '' AND run_id IS NOT NULL
-          GROUP BY run_id, brain
-          ORDER BY MIN(created_at) DESC
-        """).fetchall()
-
-        runs = []
-        for r in rows:
-            run_id = r[0]
-            # Get title of first non-system artifact in this run
-            title_row = conn.execute("""
+          SELECT r.run_id,
+                 r.brain,
+                 r.artifact_count,
+                 r.started_at,
+                 r.last_artifact_at,
+                 r.first_cycle,
+                 r.last_cycle,
+                 ft.title AS first_title
+          FROM (
+              SELECT run_id,
+                     brain,
+                     COUNT(*) AS artifact_count,
+                     MIN(created_at) AS started_at,
+                     MAX(created_at) AS last_artifact_at,
+                     MIN(cycle) AS first_cycle,
+                     MAX(cycle) AS last_cycle
+              FROM artifacts
+              WHERE run_id != '' AND run_id IS NOT NULL
+              GROUP BY run_id, brain
+          ) r
+          LEFT JOIN LATERAL (
               SELECT title FROM artifacts
-              WHERE run_id = %s
+              WHERE run_id = r.run_id
                 AND artifact_type NOT LIKE 'system_%%'
                 AND title != ''
               ORDER BY created_at ASC
               LIMIT 1
-            """, [run_id]).fetchone()
-            first_title = title_row[0] if title_row else ""
+          ) ft ON true
+          ORDER BY r.started_at DESC
+        """).fetchall()
 
+        runs = []
+        for r in rows:
             runs.append({
-                "run_id": run_id,
+                "run_id": r[0],
                 "brain": r[1],
                 "artifact_count": int(r[2]),
                 "started_at": str(r[3]),
                 "last_artifact_at": str(r[4]),
                 "first_cycle": r[5],
                 "last_cycle": r[6],
-                "first_title": first_title,
+                "first_title": r[7] or "",
             })
         return runs
 

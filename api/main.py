@@ -192,6 +192,26 @@ def get_artifact_by_id(artifact_id: int):
         return _art_row_to_dict(row)
 
 
+@app.get("/artifacts/{artifact_id}/position")
+def get_artifact_position(artifact_id: int):
+    """Get the position (0-indexed) of an artifact within its run, sorted by created_at ASC."""
+    with get_pool().connection() as conn:
+        row = conn.execute(
+            "SELECT run_id, created_at FROM artifacts WHERE id = %s", [artifact_id]
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        run_id, created_at = row[0], row[1]
+        pos = conn.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE run_id = %s AND created_at < %s",
+            [run_id, created_at]
+        ).fetchone()[0]
+        total = conn.execute(
+            "SELECT COUNT(*) FROM artifacts WHERE run_id = %s", [run_id]
+        ).fetchone()[0]
+        return {"run_id": run_id, "position": pos, "total": total}
+
+
 @app.get("/featured")
 def get_featured():
     """Get the currently featured artifact."""

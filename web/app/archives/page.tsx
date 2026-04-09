@@ -7,6 +7,7 @@ import CrtTerminal from "../components/CrtTerminal";
 
 const API = "/api/proxy";
 const MAJOR_RUN_THRESHOLD = 8;
+const PER_PAGE = 25;
 
 function formatTime(iso: string) {
   try {
@@ -18,79 +19,54 @@ function formatTime(iso: string) {
   }
 }
 
-function formatDate(iso: string) {
-  try {
-    const normalized =
-      iso.includes("Z") || iso.includes("+") ? iso : iso.replace(" ", "T") + "Z";
-    return new Date(normalized).toLocaleDateString(undefined, {
-      month: "short", day: "numeric", year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function runTitle(run: Run): string {
-  const date = formatDate(run.started_at);
-  if (run.first_title) {
-    const short = run.first_title.length > 55 ? run.first_title.slice(0, 52) + "..." : run.first_title;
-    return `${short} (${date})`;
-  }
-  return `${run.brain} — ${run.artifact_count} artifacts (${date})`;
-}
+type RunEntryProps = {
+  run: Run;
+  isExpanded: boolean;
+  onToggle: () => void;
+  artifacts: Artifact[];
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  expandedArtifact: number | null;
+  onArtifactToggle: (id: number) => void;
+  loading?: boolean;
+};
 
 function RunEntry({
   run,
   isExpanded,
   onToggle,
   artifacts,
-  hasMore,
-  onLoadMore,
+  page,
+  totalPages,
+  onPageChange,
   expandedArtifact,
   onArtifactToggle,
-}: {
-  run: Run;
-  isExpanded: boolean;
-  onToggle: () => void;
-  artifacts: Artifact[];
-  hasMore: boolean;
-  onLoadMore: () => void;
-  expandedArtifact: number | null;
-  onArtifactToggle: (id: number) => void;
-}) {
-  return (
-    <div style={{ marginBottom: 4 }}>
-      <div
-        className="artifact-card"
-        onClick={onToggle}
-        style={{
-          cursor: "pointer",
-          borderLeft: isExpanded ? "2px solid var(--cyan)" : "2px solid transparent",
-          paddingLeft: 8,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span className="artifact-title" style={{ fontSize: 13 }}>
-            <span style={{ color: "var(--cyan)", marginRight: 6 }}>
-              {isExpanded ? "[-]" : "[+]"}
-            </span>
-            {runTitle(run)}
-          </span>
-          <span className="artifact-meta">
-            {run.artifact_count} artifacts
-            {run.first_cycle != null && run.last_cycle != null && (
-              <> &middot; cycles {run.first_cycle}-{run.last_cycle}</>
-            )}
-          </span>
-        </div>
-      </div>
+  loading = false,
+}: RunEntryProps) {
+  const short = run.first_title
+    ? run.first_title.length > 55
+      ? run.first_title.slice(0, 52) + "..."
+      : run.first_title
+    : "";
 
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div
+        className="crt-text"
+        style={{ cursor: "pointer", padding: "4px 0", borderLeft: isExpanded ? "2px solid var(--cyan)" : "2px solid transparent", paddingLeft: 8 }}
+        onClick={onToggle}
+      >
+        <span style={{ color: "var(--cyan)", marginRight: 8 }}>{isExpanded ? "▾" : "▸"}</span>
+        <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginRight: 8 }}>
+          Session {run.run_id.slice(0, 8)} — {run.artifact_count} artifacts
+        </span>
+        {short && <span style={{ color: "rgba(255,255,255,0.7)" }}>{short}</span>}
+      </div>
       {isExpanded && (
-        <div style={{ marginLeft: 12, borderLeft: "1px solid var(--border)", paddingLeft: 8 }}>
-          {artifacts.length === 0 ? (
-            <div className="crt-text loading-pulse" style={{ padding: "8px 0" }}>
-              Loading...
-            </div>
+        <>
+          {loading ? (
+            <div className="crt-text loading-pulse" style={{ padding: 8 }}>Loading...</div>
           ) : (
             <>
               <CrtTerminal
@@ -98,27 +74,49 @@ function RunEntry({
                 expanded={expandedArtifact}
                 onToggle={onArtifactToggle}
                 formatTime={formatTime}
-                header={`RUN ${run.run_id.slice(0, 8)} — showing ${artifacts.length} of ${run.artifact_count}`}
               />
-              {hasMore && (
-                <div style={{ textAlign: "center", padding: "8px 0" }}>
+              {totalPages > 1 && (
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, padding: "8px 0", fontSize: 13 }}>
                   <button
-                    className="cyber-button"
-                    onClick={(e) => { e.stopPropagation(); onLoadMore(); }}
+                    onClick={() => onPageChange(0)}
+                    disabled={page === 0}
+                    className="page-btn"
                   >
-                    Load more ({run.artifact_count - artifacts.length} remaining)
+                    &laquo;
+                  </button>
+                  <button
+                    onClick={() => onPageChange(page - 1)}
+                    disabled={page === 0}
+                    className="page-btn"
+                  >
+                    &lsaquo;
+                  </button>
+                  <span style={{ color: "rgba(255,255,255,0.5)" }}>
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => onPageChange(page + 1)}
+                    disabled={page >= totalPages - 1}
+                    className="page-btn"
+                  >
+                    &rsaquo;
+                  </button>
+                  <button
+                    onClick={() => onPageChange(totalPages - 1)}
+                    disabled={page >= totalPages - 1}
+                    className="page-btn"
+                  >
+                    &raquo;
                   </button>
                 </div>
               )}
             </>
           )}
-        </div>
+        </>
       )}
     </div>
   );
 }
-
-const PER_PAGE = 30;
 
 function ArchivesInner() {
   const searchParams = useSearchParams();
@@ -127,30 +125,48 @@ function ArchivesInner() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [runArtifacts, setRunArtifacts] = useState<Record<string, Artifact[]>>({});
-  const [runHasMore, setRunHasMore] = useState<Record<string, boolean>>({});
+  const [runPage, setRunPage] = useState<Record<string, number>>({});
+  const [runTotal, setRunTotal] = useState<Record<string, number>>({});
   const [expandedArtifact, setExpandedArtifact] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
   const [showMinor, setShowMinor] = useState(false);
 
-  // First run is always "Present Run" (most recent), rest split by size
   const presentRun = runs.length > 0 ? runs[0] : null;
   const pastRuns = runs.slice(1);
   const majorRuns = pastRuns.filter((r) => r.artifact_count >= MAJOR_RUN_THRESHOLD);
   const minorRuns = pastRuns.filter((r) => r.artifact_count < MAJOR_RUN_THRESHOLD);
 
+  function loadPage(runId: string, page: number) {
+    setPageLoading(true);
+    fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${page * PER_PAGE}&sort=asc`)
+      .then(async (res) => {
+        if (res.ok) {
+          const arts: Artifact[] = await res.json();
+          setRunArtifacts((prev) => ({ ...prev, [runId]: arts }));
+          setRunPage((prev) => ({ ...prev, [runId]: page }));
+        }
+      })
+      .finally(() => setPageLoading(false));
+  }
+
   useEffect(() => {
     setLoading(true);
 
     async function init() {
-      // If deep-linking to a specific artifact, fetch it first to find its run
       let targetRunId: string | null = null;
+      let targetPage = 0;
+
       if (targetArtifactId) {
         try {
-          const artRes = await fetch(`${API}/artifacts/${targetArtifactId}`);
-          if (artRes.ok) {
-            const art = await artRes.json();
-            targetRunId = art.run_id || null;
-            setExpandedArtifact(art.id);
+          // Get artifact position to calculate page
+          const posRes = await fetch(`${API}/artifacts/${targetArtifactId}/position`);
+          if (posRes.ok) {
+            const pos = await posRes.json();
+            targetRunId = pos.run_id || null;
+            targetPage = Math.floor(pos.position / PER_PAGE);
+            setRunTotal((prev) => ({ ...prev, [pos.run_id]: pos.total }));
+            setExpandedArtifact(Number(targetArtifactId));
           }
         } catch { /* ignore */ }
       }
@@ -160,17 +176,14 @@ function ArchivesInner() {
       const data: Run[] = await res.json();
       setRuns(data);
 
+      // Set totals from run data
+      const totals: Record<string, number> = {};
+      for (const r of data) totals[r.run_id] = r.artifact_count;
+      setRunTotal((prev) => ({ ...prev, ...totals }));
+
       if (targetRunId) {
-        // Deep-link: load ALL artifacts for this run so we can scroll to the target
         setExpandedRun(targetRunId);
-        try {
-          const allRes = await fetch(`${API}/artifacts?run_id=${targetRunId}&limit=500&sort=asc`);
-          if (allRes.ok) {
-            const allArts: Artifact[] = await allRes.json();
-            setRunArtifacts((prev) => ({ ...prev, [targetRunId!]: allArts }));
-            setRunHasMore((prev) => ({ ...prev, [targetRunId!]: false }));
-          }
-        } catch { /* fallback to normal load */ loadRunArtifacts(targetRunId, 0); }
+        loadPage(targetRunId, targetPage);
         // Scroll to artifact after render
         setTimeout(() => {
           const el = document.getElementById(`artifact-${targetArtifactId}`);
@@ -178,31 +191,14 @@ function ArchivesInner() {
         }, 600);
       } else if (data.length > 0) {
         setExpandedRun(data[0].run_id);
-        loadRunArtifacts(data[0].run_id, 0);
+        // Load last page of present run (most recent artifacts)
+        const lastPage = Math.max(0, Math.ceil(data[0].artifact_count / PER_PAGE) - 1);
+        loadPage(data[0].run_id, lastPage);
       }
     }
 
     init().finally(() => setLoading(false));
   }, [targetArtifactId]);
-
-  function loadRunArtifacts(runId: string, offset: number) {
-    fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${offset}&sort=asc`)
-      .then(async (res) => {
-        if (res.ok) {
-          const arts: Artifact[] = await res.json();
-          setRunArtifacts((prev) => ({
-            ...prev,
-            [runId]: offset === 0 ? arts : [...(prev[runId] || []), ...arts],
-          }));
-          setRunHasMore((prev) => ({ ...prev, [runId]: arts.length >= PER_PAGE }));
-        }
-      });
-  }
-
-  function loadMore(runId: string) {
-    const current = runArtifacts[runId] || [];
-    loadRunArtifacts(runId, current.length);
-  }
 
   function toggleRun(runId: string) {
     if (expandedRun === runId) {
@@ -212,9 +208,23 @@ function ArchivesInner() {
       setExpandedRun(runId);
       setExpandedArtifact(null);
       if (!runArtifacts[runId]) {
-        loadRunArtifacts(runId, 0);
+        // Load last page by default (most recent)
+        const total = runTotal[runId] || 0;
+        const lastPage = Math.max(0, Math.ceil(total / PER_PAGE) - 1);
+        loadPage(runId, lastPage);
       }
     }
+  }
+
+  function handlePageChange(runId: string, page: number) {
+    setExpandedArtifact(null);
+    loadPage(runId, page);
+    // Scroll to top of run
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function getTotalPages(runId: string): number {
+    return Math.max(1, Math.ceil((runTotal[runId] || 0) / PER_PAGE));
   }
 
   return (
@@ -252,10 +262,12 @@ function ArchivesInner() {
                   isExpanded={expandedRun === presentRun.run_id}
                   onToggle={() => toggleRun(presentRun.run_id)}
                   artifacts={runArtifacts[presentRun.run_id] || []}
-                  hasMore={!!runHasMore[presentRun.run_id]}
-                  onLoadMore={() => loadMore(presentRun.run_id)}
+                  page={runPage[presentRun.run_id] || 0}
+                  totalPages={getTotalPages(presentRun.run_id)}
+                  onPageChange={(p) => handlePageChange(presentRun.run_id, p)}
                   expandedArtifact={expandedArtifact}
                   onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
+                  loading={pageLoading && expandedRun === presentRun.run_id}
                 />
               </div>
             </div>
@@ -274,10 +286,12 @@ function ArchivesInner() {
                     isExpanded={expandedRun === run.run_id}
                     onToggle={() => toggleRun(run.run_id)}
                     artifacts={runArtifacts[run.run_id] || []}
-                    hasMore={!!runHasMore[run.run_id]}
-                    onLoadMore={() => loadMore(run.run_id)}
+                    page={runPage[run.run_id] || 0}
+                    totalPages={getTotalPages(run.run_id)}
+                    onPageChange={(p) => handlePageChange(run.run_id, p)}
                     expandedArtifact={expandedArtifact}
                     onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
+                    loading={pageLoading && expandedRun === run.run_id}
                   />
                 ))}
               </div>
@@ -290,28 +304,29 @@ function ArchivesInner() {
               <div className="crt-content">
                 <div
                   className="crt-header"
-                  onClick={() => setShowMinor(!showMinor)}
                   style={{ cursor: "pointer" }}
+                  onClick={() => setShowMinor(!showMinor)}
                 >
-                  <span style={{ color: "var(--text-dim)" }}>
-                    {showMinor ? "[-]" : "[+]"}
-                  </span>
-                  {" "}SHORT RUNS ({minorRuns.length} runs, &lt;{MAJOR_RUN_THRESHOLD} artifacts each)
+                  {showMinor ? "▾" : "▸"}
+                  {" "}SHORT SESSIONS ({minorRuns.length} sessions, &lt;{MAJOR_RUN_THRESHOLD} artifacts each)
                 </div>
 
-                {showMinor && minorRuns.map((run) => (
-                  <RunEntry
-                    key={run.run_id}
-                    run={run}
-                    isExpanded={expandedRun === run.run_id}
-                    onToggle={() => toggleRun(run.run_id)}
-                    artifacts={runArtifacts[run.run_id] || []}
-                    hasMore={!!runHasMore[run.run_id]}
-                    onLoadMore={() => loadMore(run.run_id)}
-                    expandedArtifact={expandedArtifact}
-                    onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
-                  />
-                ))}
+                {showMinor &&
+                  minorRuns.map((run) => (
+                    <RunEntry
+                      key={run.run_id}
+                      run={run}
+                      isExpanded={expandedRun === run.run_id}
+                      onToggle={() => toggleRun(run.run_id)}
+                      artifacts={runArtifacts[run.run_id] || []}
+                      page={runPage[run.run_id] || 0}
+                      totalPages={getTotalPages(run.run_id)}
+                      onPageChange={(p) => handlePageChange(run.run_id, p)}
+                      expandedArtifact={expandedArtifact}
+                      onArtifactToggle={(id) => setExpandedArtifact(expandedArtifact === id ? null : id)}
+                      loading={pageLoading && expandedRun === run.run_id}
+                    />
+                  ))}
               </div>
             </div>
           )}

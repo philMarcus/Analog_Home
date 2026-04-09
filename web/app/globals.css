@@ -465,6 +465,26 @@ body {
   overflow-x: hidden;
 }
 
+/* ── Page Navigation Buttons ── */
+.page-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  color: rgba(0, 212, 255, 0.7);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 14px;
+  border-radius: 2px;
+}
+.page-btn:hover:not(:disabled) {
+  border-color: rgba(0, 212, 255, 0.6);
+  color: rgba(0, 212, 255, 1);
+}
+.page-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 /* ── Cyber Buttons ── */
 .cyber-button {
   padding: 10px 14px;

@@ -9,7 +9,7 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/artifacts?artifact_type=image&limit=50&sort=desc`)
+    fetch(`${API}/artifacts?artifact_type=image&limit=50&sort=desc&include_images=true`)
       .then(async (res) => {
         if (res.ok) {
           const data: Artifact[] = await res.json();

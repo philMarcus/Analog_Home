@@ -128,8 +128,9 @@ def get_state():
         return _read_state(conn)
 
 
-def _art_row_to_dict(row) -> dict:
-    return {
+def _art_row_to_dict(row, slim: bool = False) -> dict:
+    image_url = row[16] or "" if len(row) > 16 else ""
+    d = {
         "id": int(row[0]),
         "created_at": str(row[1]),
         "brain": row[2] or "",
@@ -146,17 +147,20 @@ def _art_row_to_dict(row) -> dict:
         "search_queries": row[13] or "" if len(row) > 13 else "",
         "temperature": float(row[14]) if len(row) > 14 and row[14] is not None else None,
         "run_id": row[15] or "" if len(row) > 15 else "",
-        "image_url": row[16] or "" if len(row) > 16 else "",
+        "image_url": "" if slim else image_url,
+        "has_image": bool(image_url),
     }
+    return d
 
 
-@app.get("/artifacts", response_model=List[ArtifactOut])
+@app.get("/artifacts")
 def get_artifacts(
     limit: int = Query(default=5, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
     run_id: Optional[str] = Query(default=None),
     artifact_type: Optional[str] = Query(default=None),
     sort: str = Query(default="desc"),
+    include_images: bool = Query(default=False),
 ):
     order = "ASC" if sort.lower() == "asc" else "DESC"
     with get_pool().connection() as conn:
@@ -174,7 +178,8 @@ def get_artifacts(
           SELECT {_ART_COLS} FROM artifacts
           {where} ORDER BY created_at {order} LIMIT %s OFFSET %s
         """, params).fetchall()
-        return [_art_row_to_dict(r) for r in rows]
+        slim = not include_images
+        return [_art_row_to_dict(r, slim=slim) for r in rows]
 
 
 @app.get("/artifacts/{artifact_id}")

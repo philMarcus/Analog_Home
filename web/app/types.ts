@@ -16,6 +16,7 @@ export type Artifact = {
   temperature: number | null;
   run_id: string;
   image_url: string;
+  has_image?: boolean;
 };
 
 export type Run = {

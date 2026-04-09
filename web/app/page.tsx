@@ -66,18 +66,14 @@ export default function Home() {
           setExpanded(topId);
           lastSeenTopIdRef.current = topId;
         }
-        // Find latest image — check current artifacts first, then use dedicated endpoint
-        const imgInCurrent = artsData.find((a) => a.image_url);
-        if (imgInCurrent) {
-          setLatestImage(imgInCurrent);
-        } else if (!latestImage) {
-          try {
-            const imgRes = await fetch(`${API}/latest-image`);
-            if (imgRes.ok) {
-              const imgData = await imgRes.json();
-              if (imgData && imgData.image_url) setLatestImage(imgData as Artifact);
-            }
-          } catch { /* ignore */ }
+        // Find latest image via dedicated endpoint (list responses omit image data to save bandwidth)
+        try {
+          const imgRes = await fetch(`${API}/latest-image`);
+          if (imgRes.ok) {
+            const imgData = await imgRes.json();
+            if (imgData && imgData.image_url) setLatestImage(imgData as Artifact);
+          }
+        } catch { /* ignore */
         }
       }
     } catch {

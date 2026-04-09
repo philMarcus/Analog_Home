@@ -82,7 +82,7 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                   <span className={isBlue ? "system-event-title-blue" : isSys ? "system-event-title" : "artifact-title"}>
                     {isSys && <span className={isBlue ? "system-event-badge-blue" : "system-event-badge"}>{systemLabel(art)}</span>}
-                    {art.image_url && <span className="image-badge">IMG</span>}
+                    {(art.image_url || art.has_image) && <span className="image-badge">IMG</span>}
                     {displayTitle(art)}
                   </span>
                   <span className="artifact-meta">

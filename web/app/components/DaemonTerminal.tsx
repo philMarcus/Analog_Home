@@ -19,7 +19,7 @@ type Props = {
 /** Map line prefixes to CSS colors for the CRT aesthetic. */
 function colorForLine(line: string): string {
   const trimmed = line.trimStart();
-  if (trimmed.startsWith("──") || trimmed.startsWith("─")) return "#00d4ff";  // bright cyan - tick borders
+  if (trimmed.startsWith("──") || trimmed.startsWith("─")) return "rgba(255,255,255,0.8)";  // white - tick borders
   if (trimmed.startsWith("SENTRY") || trimmed.startsWith("Scores:")) return "#00d4ff";
   if (trimmed.startsWith("STRATEGIST")) return "#00ffff";
   if (trimmed.startsWith("SEEKER")) return "#ff00ff";     // magenta

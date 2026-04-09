@@ -1,3 +1,4 @@
+import json
 import time
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -6,6 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from db import init_db, get_pool, close, effective_temperature, MAX_SEEDS_RETURNED, MAX_SEEDS, MAX_VOTES_PER_IP
 from models import ArtifactOut, VoteRequest, SeedRequest, SetTrajectoryRequest, StateOut
 from pydantic import BaseModel, Field
+
+
+class DaemonTickRequest(BaseModel):
+    tick: int
+    brain: str = ""
+    run_id: str = ""
+    lines: List[str] = []
+    sentry_interval: int = 300
+    complete: bool = False
 
 
 class PublishRequest(BaseModel):
@@ -174,6 +184,51 @@ def get_latest_image():
         if row:
             return _art_row_to_dict(row)
         return None
+
+
+@app.post("/daemon-tick")
+def post_daemon_tick(req: DaemonTickRequest):
+    """Push daemon tick lines (per-role, appends to current tick)."""
+    with get_pool().connection() as conn:
+        existing = conn.execute(
+            "SELECT id, tick_data FROM daemon_ticks WHERE tick=%s AND run_id=%s",
+            [req.tick, req.run_id]
+        ).fetchone()
+        if existing:
+            data = existing[1] if isinstance(existing[1], dict) else json.loads(existing[1])
+            data.setdefault("lines", []).extend(req.lines)
+            data["complete"] = req.complete
+            data["sentry_interval"] = req.sentry_interval
+            conn.execute(
+                "UPDATE daemon_ticks SET tick_data=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
+                [json.dumps(data), existing[0]]
+            )
+        else:
+            data = {"lines": req.lines, "sentry_interval": req.sentry_interval, "complete": req.complete}
+            conn.execute(
+                "INSERT INTO daemon_ticks (tick, brain, run_id, tick_data) VALUES (%s,%s,%s,%s)",
+                [req.tick, req.brain, req.run_id, json.dumps(data)]
+            )
+        conn.execute(
+            "DELETE FROM daemon_ticks WHERE id NOT IN (SELECT id FROM daemon_ticks ORDER BY created_at DESC LIMIT 50)"
+        )
+        conn.commit()
+    return {"ok": True}
+
+
+@app.get("/daemon/live")
+def get_daemon_live(limit: int = Query(default=10, ge=1, le=50)):
+    """Get recent daemon ticks for live terminal display."""
+    with get_pool().connection() as conn:
+        rows = conn.execute(
+            "SELECT tick, created_at, tick_data FROM daemon_ticks ORDER BY created_at DESC LIMIT %s",
+            [limit]
+        ).fetchall()
+    return [{
+        "tick": r[0],
+        "created_at": str(r[1]),
+        "data": r[2] if isinstance(r[2], dict) else json.loads(r[2]) if r[2] else {},
+    } for r in reversed(rows)]
 
 
 @app.get("/audience")

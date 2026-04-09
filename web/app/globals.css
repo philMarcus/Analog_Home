@@ -364,6 +364,48 @@ body {
   font-style: italic;
 }
 
+/* ── Daemon Terminal (live subconscious feed) ── */
+.daemon-terminal {
+  margin: 16px 0;
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.daemon-terminal-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(0, 212, 255, 0.6);
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+}
+.daemon-terminal-countdown {
+  color: rgba(0, 212, 255, 0.4);
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.daemon-terminal-scroll {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.daemon-tick-old {
+  opacity: 0.4;
+}
+.daemon-tick-current {
+  opacity: 1;
+}
+.daemon-line {
+  white-space: pre;
+}
+
 /* ── Cyber Buttons ── */
 .cyber-button {
   padding: 10px 14px;

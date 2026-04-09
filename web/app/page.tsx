@@ -6,6 +6,7 @@ import ControlsPanel from "./components/Controls";
 import CrtTerminal from "./components/CrtTerminal";
 import CrystalWrapper from "./components/CrystalWrapper";
 import NavBeams from "./components/NavBeams";
+import DaemonTerminal from "./components/DaemonTerminal";
 import VotingBox from "./components/VotingBox";
 
 export default function Home() {
@@ -180,6 +181,9 @@ export default function Home() {
           <CrystalWrapper />
         </div>
       </div>
+
+      {/* Live daemon subconscious feed */}
+      <DaemonTerminal apiBase={API} />
 
       {/* Controls row: voting box | temp+seed panel */}
       <div className="controls-row">

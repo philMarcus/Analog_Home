@@ -101,6 +101,23 @@ def init_db() -> None:
             )
         """)
 
+        # Daemon live feed — stores recent tick summaries for Analog Home display
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS daemon_ticks (
+                id SERIAL PRIMARY KEY,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                tick INTEGER NOT NULL,
+                brain VARCHAR DEFAULT '',
+                run_id VARCHAR DEFAULT '',
+                tick_data JSONB NOT NULL DEFAULT '{}'
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_daemon_ticks_created
+            ON daemon_ticks(created_at DESC)
+        """)
+
         # Ensure exactly one controls row (id=1)
         conn.execute("""
             INSERT INTO controls (id, temperature, vote_1, vote_2, vote_3,

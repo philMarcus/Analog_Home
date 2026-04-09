@@ -139,7 +139,7 @@ function ArchivesInner() {
 
   function loadPage(runId: string, page: number) {
     setPageLoading(true);
-    fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${page * PER_PAGE}&sort=asc`)
+    fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${page * PER_PAGE}&sort=asc&include_images=true`)
       .then(async (res) => {
         if (res.ok) {
           const arts: Artifact[] = await res.json();
@@ -191,9 +191,7 @@ function ArchivesInner() {
         }, 600);
       } else if (data.length > 0) {
         setExpandedRun(data[0].run_id);
-        // Load last page of present run (most recent artifacts)
-        const lastPage = Math.max(0, Math.ceil(data[0].artifact_count / PER_PAGE) - 1);
-        loadPage(data[0].run_id, lastPage);
+        loadPage(data[0].run_id, 0);
       }
     }
 
@@ -208,10 +206,7 @@ function ArchivesInner() {
       setExpandedRun(runId);
       setExpandedArtifact(null);
       if (!runArtifacts[runId]) {
-        // Load last page by default (most recent)
-        const total = runTotal[runId] || 0;
-        const lastPage = Math.max(0, Math.ceil(total / PER_PAGE) - 1);
-        loadPage(runId, lastPage);
+        loadPage(runId, 0);
       }
     }
   }

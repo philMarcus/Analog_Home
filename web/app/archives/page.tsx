@@ -161,14 +161,21 @@ function ArchivesInner() {
       setRuns(data);
 
       if (targetRunId) {
-        // Deep-link: expand the target run and load its artifacts
+        // Deep-link: load ALL artifacts for this run so we can scroll to the target
         setExpandedRun(targetRunId);
-        loadRunArtifacts(targetRunId, 0);
-        // Scroll to artifact after a short delay (wait for render)
+        try {
+          const allRes = await fetch(`${API}/artifacts?run_id=${targetRunId}&limit=500&sort=asc`);
+          if (allRes.ok) {
+            const allArts: Artifact[] = await allRes.json();
+            setRunArtifacts((prev) => ({ ...prev, [targetRunId!]: allArts }));
+            setRunHasMore((prev) => ({ ...prev, [targetRunId!]: false }));
+          }
+        } catch { /* fallback to normal load */ loadRunArtifacts(targetRunId, 0); }
+        // Scroll to artifact after render
         setTimeout(() => {
           const el = document.getElementById(`artifact-${targetArtifactId}`);
           if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 500);
+        }, 600);
       } else if (data.length > 0) {
         setExpandedRun(data[0].run_id);
         loadRunArtifacts(data[0].run_id, 0);

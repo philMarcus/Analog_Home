@@ -212,7 +212,7 @@ export default function Home() {
 
       {/* Featured image: most recent image */}
       {latestImage && (
-        <div className="featured-image-section">
+        <a href={`/archives?artifact=${latestImage.id}`} className="featured-image-section" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
           <img
             src={latestImage.image_url}
             alt={latestImage.title || "Generated image"}
@@ -224,7 +224,7 @@ export default function Home() {
               {latestImage.title || latestImage.body_markdown.slice(0, 140)}
             </div>
           )}
-        </div>
+        </a>
       )}
 
       {/* Featured artifact */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Artifact, Run } from "../types";
 import CrtTerminal from "../components/CrtTerminal";
 
@@ -120,6 +121,9 @@ function RunEntry({
 const PER_PAGE = 30;
 
 export default function ArchivesPage() {
+  const searchParams = useSearchParams();
+  const targetArtifactId = searchParams.get("artifact");
+
   const [runs, setRuns] = useState<Run[]>([]);
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [runArtifacts, setRunArtifacts] = useState<Record<string, Artifact[]>>({});
@@ -136,19 +140,43 @@ export default function ArchivesPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API}/runs`)
-      .then(async (res) => {
-        if (res.ok) {
-          const data: Run[] = await res.json();
-          setRuns(data);
-          if (data.length > 0) {
-            setExpandedRun(data[0].run_id);
-            loadRunArtifacts(data[0].run_id, 0);
+
+    async function init() {
+      // If deep-linking to a specific artifact, fetch it first to find its run
+      let targetRunId: string | null = null;
+      if (targetArtifactId) {
+        try {
+          const artRes = await fetch(`${API}/artifacts/${targetArtifactId}`);
+          if (artRes.ok) {
+            const art = await artRes.json();
+            targetRunId = art.run_id || null;
+            setExpandedArtifact(art.id);
           }
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
+        } catch { /* ignore */ }
+      }
+
+      const res = await fetch(`${API}/runs`);
+      if (!res.ok) return;
+      const data: Run[] = await res.json();
+      setRuns(data);
+
+      if (targetRunId) {
+        // Deep-link: expand the target run and load its artifacts
+        setExpandedRun(targetRunId);
+        loadRunArtifacts(targetRunId, 0);
+        // Scroll to artifact after a short delay (wait for render)
+        setTimeout(() => {
+          const el = document.getElementById(`artifact-${targetArtifactId}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 500);
+      } else if (data.length > 0) {
+        setExpandedRun(data[0].run_id);
+        loadRunArtifacts(data[0].run_id, 0);
+      }
+    }
+
+    init().finally(() => setLoading(false));
+  }, [targetArtifactId]);
 
   function loadRunArtifacts(runId: string, offset: number) {
     fetch(`${API}/artifacts?run_id=${runId}&limit=${PER_PAGE}&offset=${offset}&sort=asc`)

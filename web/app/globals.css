@@ -364,6 +364,75 @@ body {
   font-style: italic;
 }
 
+/* ── Featured Artifact ── */
+.featured-artifact-section {
+  margin: 16px 0;
+  border: 1px solid rgba(255, 191, 0, 0.25);
+  border-radius: 4px;
+  padding: 0;
+  position: relative;
+}
+.featured-artifact-label {
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 191, 0, 0.7);
+  background: var(--bg-dark, #0a0a0a);
+  padding: 0 8px;
+  z-index: 1;
+}
+.featured-artifact-link {
+  display: block;
+  text-align: right;
+  padding: 4px 12px 8px;
+  font-size: 12px;
+  color: rgba(255, 191, 0, 0.5);
+  text-decoration: none;
+}
+.featured-artifact-link:hover {
+  color: rgba(255, 191, 0, 0.9);
+}
+
+/* ── Gallery Grid ── */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+.gallery-card {
+  border: 1px solid rgba(57, 255, 20, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  color: inherit;
+}
+.gallery-card:hover {
+  border-color: rgba(57, 255, 20, 0.4);
+  box-shadow: 0 0 12px rgba(57, 255, 20, 0.15);
+}
+.gallery-card img {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+}
+.gallery-caption {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: rgba(57, 255, 20, 0.7);
+}
+.gallery-date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 4px;
+}
+
 /* ── Daemon Terminal (live subconscious feed) ── */
 .daemon-terminal {
   margin: 16px 0;

@@ -2,6 +2,7 @@
 
 const NAV_LINKS = [
   { label: "Archives", href: "/archives" },
+  { label: "Gallery", href: "/gallery" },
   { label: "About", href: "/about" },
   { label: "Source", href: "https://github.com/philMarcus/autonomy" },
 ];

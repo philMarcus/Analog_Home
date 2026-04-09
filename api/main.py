@@ -155,21 +155,58 @@ def get_artifacts(
     limit: int = Query(default=5, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
     run_id: Optional[str] = Query(default=None),
+    artifact_type: Optional[str] = Query(default=None),
     sort: str = Query(default="desc"),
 ):
     order = "ASC" if sort.lower() == "asc" else "DESC"
     with get_pool().connection() as conn:
+        conditions = []
+        params: list = []
         if run_id:
-            rows = conn.execute(f"""
-              SELECT {_ART_COLS} FROM artifacts
-              WHERE run_id = %s ORDER BY created_at {order} LIMIT %s OFFSET %s
-            """, [run_id, limit, offset]).fetchall()
-        else:
-            rows = conn.execute(f"""
-              SELECT {_ART_COLS} FROM artifacts
-              ORDER BY created_at {order} LIMIT %s OFFSET %s
-            """, [limit, offset]).fetchall()
+            conditions.append("run_id = %s")
+            params.append(run_id)
+        if artifact_type:
+            conditions.append("artifact_type = %s")
+            params.append(artifact_type)
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        params.extend([limit, offset])
+        rows = conn.execute(f"""
+          SELECT {_ART_COLS} FROM artifacts
+          {where} ORDER BY created_at {order} LIMIT %s OFFSET %s
+        """, params).fetchall()
         return [_art_row_to_dict(r) for r in rows]
+
+
+@app.get("/artifacts/{artifact_id}")
+def get_artifact_by_id(artifact_id: int):
+    """Get a single artifact by ID."""
+    with get_pool().connection() as conn:
+        row = conn.execute(f"SELECT {_ART_COLS} FROM artifacts WHERE id = %s", [artifact_id]).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        return _art_row_to_dict(row)
+
+
+@app.get("/featured")
+def get_featured():
+    """Get the currently featured artifact."""
+    with get_pool().connection() as conn:
+        row = conn.execute(f"""
+          SELECT {_ART_COLS} FROM artifacts WHERE is_featured = TRUE LIMIT 1
+        """).fetchone()
+        if row:
+            return _art_row_to_dict(row)
+        return None
+
+
+@app.post("/feature/{artifact_id}")
+def feature_artifact(artifact_id: int):
+    """Mark an artifact as featured (only one at a time)."""
+    with get_pool().connection() as conn:
+        conn.execute("UPDATE artifacts SET is_featured = FALSE WHERE is_featured = TRUE")
+        conn.execute("UPDATE artifacts SET is_featured = TRUE WHERE id = %s", [artifact_id])
+        conn.commit()
+    return {"ok": True, "featured_id": artifact_id}
 
 
 @app.get("/latest-image")

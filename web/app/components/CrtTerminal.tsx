@@ -75,6 +75,7 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
             return (
               <div
                 key={art.id}
+                id={`artifact-${art.id}`}
                 className={`artifact-card${isExpanded ? " expanded" : ""}${sysClass}`}
                 onClick={() => onToggle(art.id)}
               >

@@ -15,6 +15,7 @@ export default function Home() {
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [latestImage, setLatestImage] = useState<Artifact | null>(null);
+  const [featuredArtifact, setFeaturedArtifact] = useState<Artifact | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const lastSeenTopIdRef = useRef<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
@@ -28,10 +29,15 @@ export default function Home() {
 
   async function fetchData() {
     try {
-      const [stateRes, runsRes] = await Promise.all([
+      const [stateRes, runsRes, featuredRes] = await Promise.all([
         fetch(`${API}/state`),
         fetch(`${API}/runs`),
+        fetch(`${API}/featured`),
       ]);
+      if (featuredRes.ok) {
+        const featuredData = await featuredRes.json();
+        if (featuredData && featuredData.id) setFeaturedArtifact(featuredData as Artifact);
+      }
       if (!stateRes.ok) return;
       const stateData = (await stateRes.json()) as State;
       setControls(stateData.controls);
@@ -221,6 +227,22 @@ export default function Home() {
               {latestImage.title || latestImage.body_markdown.slice(0, 140)}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Featured artifact */}
+      {featuredArtifact && (
+        <div className="featured-artifact-section">
+          <div className="featured-artifact-label">FEATURED</div>
+          <CrtTerminal
+            artifacts={[featuredArtifact]}
+            expanded={featuredArtifact.id}
+            onToggle={() => {}}
+            formatTime={formatTime}
+          />
+          <a href={`/archives?artifact=${featuredArtifact.id}`} className="featured-artifact-link">
+            View in archives &rarr;
+          </a>
         </div>
       )}
 

@@ -101,6 +101,11 @@ def init_db() -> None:
             )
         """)
 
+        # Migration: add is_featured column to artifacts
+        conn.execute("""
+            ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE
+        """)
+
         # Daemon live feed — stores recent tick summaries for Analog Home display
         conn.execute("""
             CREATE TABLE IF NOT EXISTS daemon_ticks (

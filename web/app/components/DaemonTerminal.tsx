@@ -19,16 +19,30 @@ type Props = {
 /** Map line prefixes to CSS colors for the CRT aesthetic. */
 function colorForLine(line: string): string {
   const trimmed = line.trimStart();
-  if (trimmed.startsWith("──") || trimmed.startsWith("─")) return "rgba(255,255,255,0.8)";  // white - tick borders
-  if (trimmed.startsWith("SENTRY") || trimmed.startsWith("Scores:")) return "#00d4ff";
-  if (trimmed.startsWith("STRATEGIST")) return "#00ffff";
-  if (trimmed.startsWith("SEEKER")) return "#ff00ff";     // magenta
-  if (trimmed.startsWith("SEED:") && trimmed.includes("charge")) return "#39ff14";  // green
-  if (trimmed.startsWith("SEED:")) return "#cccc00";       // yellow (filtered)
-  if (trimmed.startsWith("→")) return "#39ff14";            // green - drafts
-  if (trimmed.startsWith("wake=")) return "rgba(255,255,255,0.4)";  // dim
-  if (trimmed.startsWith("(no feed)") || trimmed.startsWith("(no drafts)")) return "rgba(255,255,255,0.3)";
-  return "rgba(255,255,255,0.7)";  // default dim white
+  // Tick start/end — purple
+  if (trimmed.startsWith("──") || trimmed.startsWith("─")) return "#b48ead";
+  if (trimmed.startsWith("wake=")) return "#b48ead";
+  // Sentry — white
+  if (trimmed.startsWith("SENTRY") || trimmed.startsWith("Scores:") || trimmed.startsWith("↑")) return "rgba(255,255,255,0.9)";
+  if (trimmed.startsWith("(no feed)")) return "rgba(255,255,255,0.4)";
+  // Strategist — orange/yellow
+  if (trimmed.startsWith("STRATEGIST")) return "#ffa657";
+  if (trimmed.startsWith("→")) return "#ffc878";
+  if (trimmed.startsWith("(no drafts)")) return "rgba(255,166,87,0.5)";
+  // Seeker — pink
+  if (trimmed.startsWith("SEEKER") || trimmed.startsWith("Searched") || trimmed.startsWith("Next:")) return "#f778ba";
+  // Seeds — green
+  if (trimmed.startsWith("SEED:")) return "#39ff14";
+  // Conscious events — green
+  if (trimmed.startsWith("CYCLE") || trimmed.startsWith("ACTION:") || trimmed.startsWith("[MEMORY]")) return "#39ff14";
+  if (trimmed.startsWith("[CONTROL]") || trimmed.startsWith("[KERNEL]")) return "#39ff14";
+  // Accountant — teal
+  if (trimmed.startsWith("[BUDGET]")) return "#88c0d0";
+  // Compressor — light blue
+  if (trimmed.startsWith("[COMPRESS]") || trimmed.startsWith("[POST MEMORY]")) return "#81a1c1";
+  // Verification — amber
+  if (trimmed.startsWith("[VERIFICATION]")) return "#ebcb8b";
+  return "rgba(255,255,255,0.5)";
 }
 
 export default function DaemonTerminal({ apiBase }: Props) {

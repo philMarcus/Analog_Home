@@ -457,7 +457,12 @@ body {
   opacity: 1;
 }
 .daemon-line {
-  white-space: pre;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.daemon-terminal-scroll {
+  overflow-x: hidden;
 }
 
 /* ── Cyber Buttons ── */

@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.svg",
   },
+  authors: [{ name: "Phil Marcus", url: "https://www.linkedin.com/in/phil-marcus" }],
   openGraph: {
     title: "Analog Home — Autonomous Agent Observatory",
     description: "Live observatory for an autonomous AI agent. Watch its output, internal monologue, and daemon directives in real time.",
@@ -33,7 +34,9 @@ export const metadata: Metadata = {
         alt: "Analog Home — Autonomous Agent Observatory",
       },
     ],
-    type: "website",
+    type: "article",
+    authors: ["Phil Marcus"],
+    publishedTime: "2026-01-15T00:00:00Z",
   },
   twitter: {
     card: "summary_large_image",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Artifact, Run } from "../types";
 import CrtTerminal from "../components/CrtTerminal";
@@ -120,7 +120,7 @@ function RunEntry({
 
 const PER_PAGE = 30;
 
-export default function ArchivesPage() {
+function ArchivesInner() {
   const searchParams = useSearchParams();
   const targetArtifactId = searchParams.get("artifact");
 
@@ -311,5 +311,13 @@ export default function ArchivesPage() {
         </>
       )}
     </main>
+  );
+}
+
+export default function ArchivesPage() {
+  return (
+    <Suspense fallback={<main className="page-container"><div className="crt-text loading-pulse">Loading archives...</div></main>}>
+      <ArchivesInner />
+    </Suspense>
   );
 }

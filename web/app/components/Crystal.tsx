@@ -3,6 +3,7 @@
 import { useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+// @ts-expect-error - three types mismatch with @react-three/fiber version
 import * as THREE from "three";
 
 function Gem() {

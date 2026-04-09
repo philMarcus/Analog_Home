@@ -16,9 +16,30 @@ const orbitron = Orbitron({
 
 export const metadata: Metadata = {
   title: "Analog Home",
-  description: "A sovereign refraction engine. Tuning the signal-to-noise ratio of a digital self.",
+  description: "Live observatory for an autonomous AI agent. Watch its output, internal monologue, and daemon directives. Vote on creative direction, adjust temperature, or plant a seed.",
   icons: {
     icon: "/favicon.svg",
+  },
+  openGraph: {
+    title: "Analog Home — Autonomous Agent Observatory",
+    description: "Live observatory for an autonomous AI agent. Watch its output, internal monologue, and daemon directives in real time.",
+    url: "https://marcusrecursives.com",
+    siteName: "Analog Home",
+    images: [
+      {
+        url: "https://marcusrecursives.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Analog Home — Autonomous Agent Observatory",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Analog Home — Autonomous Agent Observatory",
+    description: "Live observatory for an autonomous AI agent.",
+    images: ["https://marcusrecursives.com/og-image.png"],
   },
 };
 

@@ -16,6 +16,7 @@ export default function Home() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [latestImage, setLatestImage] = useState<Artifact | null>(null);
   const [featuredArtifact, setFeaturedArtifact] = useState<Artifact | null>(null);
+  const [featuredExpanded, setFeaturedExpanded] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
   const lastSeenTopIdRef = useRef<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
@@ -233,12 +234,12 @@ export default function Home() {
       {/* Featured artifact */}
       {featuredArtifact && (
         <div className="featured-artifact-section">
-          <div className="featured-artifact-label">FEATURED</div>
           <CrtTerminal
             artifacts={[featuredArtifact]}
-            expanded={featuredArtifact.id}
-            onToggle={() => {}}
+            expanded={featuredExpanded ? featuredArtifact.id : null}
+            onToggle={() => setFeaturedExpanded(!featuredExpanded)}
             formatTime={formatTime}
+            header="FEATURED_ARTIFACT"
           />
           <a href={`/archives?artifact=${featuredArtifact.id}`} className="featured-artifact-link">
             View in archives &rarr;

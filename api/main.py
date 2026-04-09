@@ -260,11 +260,18 @@ def post_daemon_tick(req: DaemonTickRequest):
 
 @app.get("/daemon/live")
 def get_daemon_live(limit: int = Query(default=10, ge=1, le=50)):
-    """Get recent daemon ticks for live terminal display."""
+    """Get recent daemon ticks for live terminal display. Only returns ticks from the latest session."""
     with get_pool().connection() as conn:
+        # Get the most recent run_id to filter to current session
+        latest = conn.execute(
+            "SELECT run_id FROM daemon_ticks ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
+        ).fetchone()
+        if not latest:
+            return []
+        run_id = latest[0]
         rows = conn.execute(
-            "SELECT tick, COALESCE(updated_at, created_at), tick_data FROM daemon_ticks ORDER BY COALESCE(updated_at, created_at) DESC LIMIT %s",
-            [limit]
+            "SELECT tick, COALESCE(updated_at, created_at), tick_data FROM daemon_ticks WHERE run_id = %s ORDER BY COALESCE(updated_at, created_at) DESC LIMIT %s",
+            [run_id, limit]
         ).fetchall()
     return [{
         "tick": r[0],

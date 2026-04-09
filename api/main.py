@@ -246,13 +246,15 @@ def post_daemon_tick(req: DaemonTickRequest):
                 [json.dumps(data), existing[0]]
             )
         else:
+            # Clean out old session ticks when a new run_id appears
+            conn.execute("DELETE FROM daemon_ticks WHERE run_id != %s", [req.run_id])
             data = {"lines": req.lines, "sentry_interval": req.sentry_interval, "complete": req.complete}
             conn.execute(
                 "INSERT INTO daemon_ticks (tick, brain, run_id, tick_data) VALUES (%s,%s,%s,%s)",
                 [req.tick, req.brain, req.run_id, json.dumps(data)]
             )
         conn.execute(
-            "DELETE FROM daemon_ticks WHERE id NOT IN (SELECT id FROM daemon_ticks ORDER BY created_at DESC LIMIT 50)"
+            "DELETE FROM daemon_ticks WHERE id NOT IN (SELECT id FROM daemon_ticks ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 50)"
         )
         conn.commit()
     return {"ok": True}

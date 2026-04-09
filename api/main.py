@@ -228,6 +228,18 @@ def get_latest_image():
         return None
 
 
+@app.delete("/daemon-ticks")
+def clear_daemon_ticks(run_id: str = Query(default="")):
+    """Clear all daemon ticks (or for a specific run_id)."""
+    with get_pool().connection() as conn:
+        if run_id:
+            conn.execute("DELETE FROM daemon_ticks WHERE run_id = %s", [run_id])
+        else:
+            conn.execute("DELETE FROM daemon_ticks")
+        conn.commit()
+    return {"ok": True}
+
+
 @app.post("/daemon-tick")
 def post_daemon_tick(req: DaemonTickRequest):
     """Push daemon tick lines (per-role, appends to current tick)."""

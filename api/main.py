@@ -263,7 +263,7 @@ def get_daemon_live(limit: int = Query(default=10, ge=1, le=50)):
     """Get recent daemon ticks for live terminal display."""
     with get_pool().connection() as conn:
         rows = conn.execute(
-            "SELECT tick, created_at, tick_data FROM daemon_ticks ORDER BY created_at DESC LIMIT %s",
+            "SELECT tick, COALESCE(updated_at, created_at), tick_data FROM daemon_ticks ORDER BY COALESCE(updated_at, created_at) DESC LIMIT %s",
             [limit]
         ).fetchall()
     return [{

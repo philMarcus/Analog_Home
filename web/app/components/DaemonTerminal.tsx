@@ -38,6 +38,8 @@ function colorForLine(line: string): string {
   if (trimmed.startsWith("[CONTROL]") || trimmed.startsWith("[KERNEL]")) return "#39ff14";
   // Dreamer — soft lavender
   if (trimmed.startsWith("DREAMER") || (trimmed.startsWith("Topic:") || trimmed.startsWith("\"This seems"))) return "#c4a7e7";
+  // Muse — golden
+  if (trimmed.startsWith("MUSE")) return "#ffd700";
   // Accountant — teal
   if (trimmed.startsWith("[BUDGET]")) return "#88c0d0";
   // Compressor — light blue

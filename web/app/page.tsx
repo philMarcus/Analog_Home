@@ -11,6 +11,12 @@ import VotingBox from "./components/VotingBox";
 import Footer from "./components/Footer";
 import { imageUrl } from "./lib/imageUrl";
 
+// Primary featured artifact — pinned to the top of the featured section
+// regardless of cycle order, and auto-expanded on initial page load. The
+// remaining featured artifacts sort by cycle DESC underneath it. Update this
+// id to change which artifact leads the home page.
+const PRIMARY_FEATURED_ID = 1775696507944; // "The Interval" (cycle 4)
+
 export default function Home() {
   const API = useMemo(() => "/api/proxy", []);
   const [controls, setControls] = useState<ControlsType | null>(null);
@@ -40,9 +46,18 @@ export default function Home() {
       if (featuredRes.ok) {
         const featuredData = await featuredRes.json();
         if (Array.isArray(featuredData) && featuredData.length > 0) {
-          setFeaturedArtifacts(featuredData as Artifact[]);
-          // Auto-expand the first (newest) only on initial load
-          setFeaturedExpandedId((prev) => prev ?? featuredData[0].id);
+          // Pin PRIMARY_FEATURED_ID to the top; sort the rest by cycle DESC.
+          // The API already returns cycle DESC, but we need to override that
+          // to put a chosen artifact (e.g. an older signature piece) first.
+          const arts = featuredData as Artifact[];
+          const primary = arts.find((a) => a.id === PRIMARY_FEATURED_ID);
+          const rest = arts
+            .filter((a) => a.id !== PRIMARY_FEATURED_ID)
+            .sort((a, b) => (b.cycle ?? 0) - (a.cycle ?? 0));
+          const ordered = primary ? [primary, ...rest] : rest;
+          setFeaturedArtifacts(ordered);
+          // Auto-expand the primary (or fall back to the first) on initial load only
+          setFeaturedExpandedId((prev) => prev ?? ordered[0]?.id ?? null);
         } else if (featuredData && featuredData.id) {
           // Backward compat with old single-object response
           setFeaturedArtifacts([featuredData as Artifact]);

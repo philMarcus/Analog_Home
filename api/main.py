@@ -213,14 +213,20 @@ def get_artifact_position(artifact_id: int):
 
 
 @app.get("/featured")
-def get_featured():
-    """Get all currently featured artifacts (newest cycle first)."""
+def get_featured(include_images: bool = Query(default=False)):
+    """Get all currently featured artifacts (newest cycle first).
+
+    By default returns slim rows (no image_url) to save bandwidth.
+    Pass ?include_images=true if you actually need the image data
+    (only the gallery and archive deep-link should need this).
+    """
     with get_pool().connection() as conn:
         rows = conn.execute(f"""
           SELECT {_ART_COLS} FROM artifacts WHERE is_featured = TRUE
           ORDER BY cycle DESC NULLS LAST, created_at DESC
         """).fetchall()
-        return [_art_row_to_dict(r) for r in rows]
+        slim = not include_images
+        return [_art_row_to_dict(r, slim=slim) for r in rows]
 
 
 @app.post("/feature/{artifact_id}")

@@ -224,7 +224,7 @@ export default function Home() {
       {latestImage && (
         <a href={`/archives?artifact=${latestImage.id}`} className="featured-image-section" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
           <img
-            src={imageUrl(latestImage, "full")}
+            src={imageUrl(latestImage, "medium")}
             alt={latestImage.title || "Generated image"}
             className="featured-image"
             loading="lazy"

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Artifact } from "../types";
+import { imageUrl } from "../lib/imageUrl";
+import Footer from "../components/Footer";
 
 export default function Gallery() {
   const API = useMemo(() => "/api/proxy", []);
@@ -9,11 +11,13 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // include_images=true so legacy data-URI artifacts still come through.
+    // New artifacts come through regardless (image_url is a small URL string).
     fetch(`${API}/artifacts?artifact_type=image&limit=50&sort=desc&include_images=true`)
       .then(async (res) => {
         if (res.ok) {
           const data: Artifact[] = await res.json();
-          setImages(data.filter((a) => a.image_url));
+          setImages(data.filter((a) => a.image_url || a.has_image));
         }
       })
       .finally(() => setLoading(false));
@@ -58,7 +62,7 @@ export default function Gallery() {
               className="gallery-card"
             >
               <img
-                src={img.image_url}
+                src={imageUrl(img, "thumb")}
                 alt={img.title || "Generated image"}
                 loading="lazy"
               />
@@ -72,6 +76,8 @@ export default function Gallery() {
           ))}
         </div>
       )}
+
+      <Footer />
     </main>
   );
 }

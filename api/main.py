@@ -1,8 +1,11 @@
+import base64
+import io
 import json
 import time
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
 
 from db import init_db, get_pool, close, effective_temperature, MAX_SEEDS_RETURNED, MAX_SEEDS, MAX_VOTES_PER_IP
 from models import ArtifactOut, VoteRequest, SeedRequest, SetTrajectoryRequest, StateOut
@@ -36,6 +39,11 @@ class PublishRequest(BaseModel):
     temperature: Optional[float] = None
     run_id: str = Field(default="", max_length=64)
     image_url: str = Field(default="", max_length=800000)
+    # New: raw base64-encoded image binary (no data URI prefix). Stored in
+    # image_data BYTEA column. Replaces image_url for new artifacts. Server
+    # generates thumb/medium/full via /artifacts/{id}/image/{size} endpoint.
+    image_data_b64: str = Field(default="", max_length=2000000)
+    image_mime: str = Field(default="image/jpeg", max_length=32)
 
 
 app = FastAPI(title="Analog I API")
@@ -74,7 +82,8 @@ def healthz():
 _ART_COLS = """id, created_at, brain, cycle, artifact_type,
              title, body_markdown, monologue_public,
              channel, source_platform, source_id, source_parent_id, source_url,
-             search_queries, temperature, run_id, image_url"""
+             search_queries, temperature, run_id, image_url,
+             (image_data IS NOT NULL) AS has_binary_image"""
 
 
 def _read_state(conn):
@@ -129,9 +138,24 @@ def get_state():
 
 
 def _art_row_to_dict(row, slim: bool = False) -> dict:
-    image_url = row[16] or "" if len(row) > 16 else ""
+    artifact_id = int(row[0])
+    legacy_image_url = row[16] or "" if len(row) > 16 else ""
+    has_binary_image = bool(row[17]) if len(row) > 17 else False
+
+    # Resolve image_url:
+    #   - New artifacts (image_data BYTEA): point at the medium-size endpoint URL.
+    #     Returned as /api/proxy/... so the Next.js rewrite hits the backend
+    #     and the browser caches the response across 8s polls.
+    #   - Legacy artifacts (image_url data URI): pass through as-is for backward compat.
+    if has_binary_image:
+        resolved_image_url = f"/api/proxy/artifacts/{artifact_id}/image/medium"
+    else:
+        resolved_image_url = legacy_image_url
+
+    has_image = has_binary_image or bool(legacy_image_url)
+
     d = {
-        "id": int(row[0]),
+        "id": artifact_id,
         "created_at": str(row[1]),
         "brain": row[2] or "",
         "cycle": row[3],
@@ -147,8 +171,9 @@ def _art_row_to_dict(row, slim: bool = False) -> dict:
         "search_queries": row[13] or "" if len(row) > 13 else "",
         "temperature": float(row[14]) if len(row) > 14 and row[14] is not None else None,
         "run_id": row[15] or "" if len(row) > 15 else "",
-        "image_url": "" if slim else image_url,
-        "has_image": bool(image_url),
+        # When slim, drop legacy data URI but keep the cheap binary URL.
+        "image_url": (resolved_image_url if has_binary_image else "") if slim else resolved_image_url,
+        "has_image": has_image,
     }
     return d
 
@@ -264,16 +289,101 @@ def patch_artifact_body(artifact_id: int, body: dict):
 
 @app.get("/latest-image")
 def get_latest_image():
-    """Return the most recent artifact that has an image_url."""
+    """Return the most recent artifact that has an image (binary or legacy data URI)."""
     with get_pool().connection() as conn:
         row = conn.execute(f"""
           SELECT {_ART_COLS} FROM artifacts
-          WHERE image_url IS NOT NULL AND image_url != ''
+          WHERE image_data IS NOT NULL
+             OR (image_url IS NOT NULL AND image_url != '')
           ORDER BY created_at DESC LIMIT 1
         """).fetchone()
         if row:
             return _art_row_to_dict(row)
         return None
+
+
+# Resize targets for the three image tiers. Full = original (no resize).
+_IMAGE_SIZES = {
+    "thumb": 400,
+    "medium": 800,
+    "full": None,
+}
+
+
+def _decode_legacy_data_uri(data_uri: str) -> tuple[bytes, str]:
+    """Decode a data: URI string into (bytes, mime). Returns (b'', '') on failure."""
+    if not data_uri or not data_uri.startswith("data:"):
+        return b"", ""
+    try:
+        header, b64 = data_uri.split(",", 1)
+        # header looks like "data:image/jpeg;base64"
+        mime = header[5:].split(";", 1)[0] or "image/jpeg"
+        return base64.b64decode(b64), mime
+    except Exception:
+        return b"", ""
+
+
+@app.get("/artifacts/{artifact_id}/image/{size}")
+def get_artifact_image(artifact_id: int, size: str, request: Request):
+    """Serve an artifact image at a tiered size (thumb/medium/full).
+
+    - Reads binary from the image_data column (preferred).
+    - Falls back to decoding legacy image_url data URIs for older artifacts.
+    - Resizes thumb/medium on the fly with PIL; full returns the original.
+    - Aggressive HTTP caching: artifacts are immutable once published.
+    """
+    if size not in _IMAGE_SIZES:
+        raise HTTPException(status_code=400, detail="size must be thumb, medium, or full")
+
+    # Conditional GET — every (artifact, size) pair is immutable.
+    etag = f'"{artifact_id}-{size}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304)
+
+    with get_pool().connection() as conn:
+        row = conn.execute(
+            "SELECT image_data, image_mime, image_url FROM artifacts WHERE id = %s",
+            [artifact_id]
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+
+        raw_bytes: bytes = bytes(row[0]) if row[0] is not None else b""
+        mime: str = row[1] or "image/jpeg"
+
+        if not raw_bytes and row[2]:
+            # Legacy fallback: decode the data URI.
+            raw_bytes, legacy_mime = _decode_legacy_data_uri(row[2])
+            if legacy_mime:
+                mime = legacy_mime
+
+        if not raw_bytes:
+            raise HTTPException(status_code=404, detail="Artifact has no image")
+
+    # Resize for thumb/medium. Full returns the original bytes untouched.
+    target_dim = _IMAGE_SIZES[size]
+    if target_dim is not None:
+        try:
+            img = Image.open(io.BytesIO(raw_bytes))
+            # Convert palette/RGBA to RGB so JPEG re-encode is safe.
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            img.thumbnail((target_dim, target_dim), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85, optimize=True)
+            raw_bytes = buf.getvalue()
+            mime = "image/jpeg"
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"image resize failed: {e}")
+
+    return Response(
+        content=raw_bytes,
+        media_type=mime,
+        headers={
+            "Cache-Control": "public, max-age=86400, immutable",
+            "ETag": etag,
+        },
+    )
 
 
 @app.delete("/daemon-ticks")
@@ -631,14 +741,23 @@ def delete_artifact(artifact_id: int):
 @app.post("/publish", response_model=StateOut)
 def publish(req: PublishRequest):
     """Publish a new artifact."""
+    # Decode raw base64 image (no data URI prefix). The agent now sends binary
+    # via image_data_b64 instead of stuffing a giant data URI into image_url.
+    image_data: Optional[bytes] = None
+    if req.image_data_b64:
+        try:
+            image_data = base64.b64decode(req.image_data_b64)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"image_data_b64 decode failed: {e}")
+
     with get_pool().connection() as conn:
         try:
             conn.execute(
                 """INSERT INTO artifacts
                    (id, brain, cycle, artifact_type, title, body_markdown, monologue_public,
                     channel, source_platform, source_id, source_parent_id, source_url,
-                    search_queries, temperature, run_id, image_url)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    search_queries, temperature, run_id, image_url, image_data, image_mime)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (id) DO UPDATE SET
                     brain=EXCLUDED.brain, cycle=EXCLUDED.cycle, artifact_type=EXCLUDED.artifact_type,
                     title=EXCLUDED.title, body_markdown=EXCLUDED.body_markdown,
@@ -646,12 +765,14 @@ def publish(req: PublishRequest):
                     source_platform=EXCLUDED.source_platform, source_id=EXCLUDED.source_id,
                     source_parent_id=EXCLUDED.source_parent_id, source_url=EXCLUDED.source_url,
                     search_queries=EXCLUDED.search_queries, temperature=EXCLUDED.temperature,
-                    run_id=EXCLUDED.run_id, image_url=EXCLUDED.image_url;""",
+                    run_id=EXCLUDED.run_id, image_url=EXCLUDED.image_url,
+                    image_data=EXCLUDED.image_data, image_mime=EXCLUDED.image_mime;""",
                 [int(req.id), req.brain, req.cycle, req.artifact_type,
                  req.title, req.body_markdown, req.monologue_public,
                  req.channel, req.source_platform, req.source_id,
                  req.source_parent_id, req.source_url, req.search_queries,
-                 req.temperature, req.run_id, req.image_url],
+                 req.temperature, req.run_id, req.image_url,
+                 image_data, req.image_mime],
             )
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))

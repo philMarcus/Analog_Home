@@ -8,6 +8,7 @@ import CrystalWrapper from "./components/CrystalWrapper";
 import NavBeams from "./components/NavBeams";
 import DaemonTerminal from "./components/DaemonTerminal";
 import VotingBox from "./components/VotingBox";
+import Footer from "./components/Footer";
 
 export default function Home() {
   const API = useMemo(() => "/api/proxy", []);
@@ -261,6 +262,8 @@ export default function Home() {
         formatTime={formatTime}
         initialLoad={initialLoad}
       />
+
+      <Footer />
     </main>
   );
 }

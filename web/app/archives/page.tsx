@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Artifact, Run } from "../types";
 import CrtTerminal from "../components/CrtTerminal";
+import Footer from "../components/Footer";
 
 const API = "/api/proxy";
 const MAJOR_RUN_THRESHOLD = 8;
@@ -184,11 +185,8 @@ function ArchivesInner() {
       if (targetRunId) {
         setExpandedRun(targetRunId);
         loadPage(targetRunId, targetPage);
-        // Scroll to artifact after render
-        setTimeout(() => {
-          const el = document.getElementById(`artifact-${targetArtifactId}`);
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 600);
+        // Scroll happens in the dedicated useEffect below — once the artifact
+        // actually renders into the DOM, not on a fixed timeout.
       } else if (data.length > 0) {
         setExpandedRun(data[0].run_id);
         loadPage(data[0].run_id, 0);
@@ -197,6 +195,36 @@ function ArchivesInner() {
 
     init().finally(() => setLoading(false));
   }, [targetArtifactId]);
+
+  // Deep-link scroll: wait for the target artifact to be in the DOM before
+  // scrolling. The previous fixed setTimeout(600) raced against async render
+  // for runs that paginate, especially the present run on first load.
+  useEffect(() => {
+    if (!targetArtifactId) return;
+    if (!expandedRun) return;
+    const arts = runArtifacts[expandedRun];
+    if (!arts || arts.length === 0) return;
+    if (!arts.some((a) => a.id === Number(targetArtifactId))) return;
+
+    let attempts = 0;
+    let cancelled = false;
+    const tryScroll = () => {
+      if (cancelled) return;
+      const el = document.getElementById(`artifact-${targetArtifactId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (attempts < 20) {
+        attempts++;
+        setTimeout(tryScroll, 100);
+      }
+    };
+    tryScroll();
+    return () => {
+      cancelled = true;
+    };
+  }, [runArtifacts, expandedRun, targetArtifactId]);
 
   function toggleRun(runId: string) {
     if (expandedRun === runId) {
@@ -293,7 +321,7 @@ function ArchivesInner() {
             </div>
           )}
 
-          {/* Minor runs (collapsed by default) */}
+          {/* Minor runs (collapsed by default) — Footer added at end below */}
           {minorRuns.length > 0 && (
             <div className="crt-terminal" style={{ marginTop: 16 }}>
               <div className="crt-content">
@@ -327,6 +355,8 @@ function ArchivesInner() {
           )}
         </>
       )}
+
+      <Footer />
     </main>
   );
 }

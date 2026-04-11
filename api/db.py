@@ -92,6 +92,16 @@ def init_db() -> None:
             ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT ''
         """)
 
+        # Migration: add binary image storage (image_data BYTEA + mime)
+        # Replaces base64 data URIs in image_url for new artifacts.
+        # Served via dedicated /artifacts/{id}/image/{size} endpoint with HTTP caching.
+        conn.execute("""
+            ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS image_data BYTEA
+        """)
+        conn.execute("""
+            ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS image_mime VARCHAR(32) DEFAULT 'image/jpeg'
+        """)
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS ip_rate_limits (
                 ip VARCHAR,

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Artifact } from "../types";
+import { imageUrl } from "../lib/imageUrl";
 
 type Props = {
   artifacts: Artifact[];
@@ -108,15 +109,27 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
 
                 {showBody && (
                   <div>
-                    {/* Image display (suppressed in featured section since it shows above) */}
+                    {/* Image display (suppressed in featured section since it shows above).
+                        For new artifacts image_url is already a /image/medium URL, served
+                        with HTTP caching. For legacy artifacts it's a data URI passthrough. */}
                     {art.image_url && !hideImages && (
                       <div className="artifact-image-container">
                         <img
-                          src={art.image_url}
+                          src={imageUrl(art, "medium")}
                           alt={art.title || "Generated image"}
                           className="artifact-image"
                           loading="lazy"
                         />
+                        {!art.image_url.startsWith("data:") && (
+                          <a
+                            href={imageUrl(art, "full")}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="artifact-full-image-link"
+                          >
+                            View full size &rarr;
+                          </a>
+                        )}
                       </div>
                     )}
 

@@ -683,3 +683,46 @@ body {
     padding: 14px;
   }
 }
+
+/* ── Site Footer (mirrors top NavBeams targets) ── */
+.site-footer {
+  margin-top: 48px;
+  padding: 24px 0 32px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.footer-link {
+  color: var(--cyan);
+  text-decoration: none;
+  text-shadow: var(--glow-cyan);
+  transition: color 0.15s;
+}
+
+.footer-link:hover {
+  color: #ffffff;
+}
+
+.footer-sep {
+  color: var(--cyan-dim);
+  margin: 0 14px;
+  opacity: 0.6;
+}
+
+/* "View full size" link under expanded artifact images */
+.artifact-full-image-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--cyan-dim);
+  text-decoration: none;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.artifact-full-image-link:hover {
+  color: var(--cyan);
+}

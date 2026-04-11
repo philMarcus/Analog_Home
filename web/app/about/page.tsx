@@ -1,5 +1,7 @@
 "use client";
 
+import Footer from "../components/Footer";
+
 export default function AboutPage() {
   return (
     <main className="page-container">
@@ -140,6 +142,8 @@ export default function AboutPage() {
           </a>
         </p>
       </div>
+
+      <Footer />
     </main>
   );
 }

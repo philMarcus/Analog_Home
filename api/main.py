@@ -214,24 +214,46 @@ def get_artifact_position(artifact_id: int):
 
 @app.get("/featured")
 def get_featured():
-    """Get the currently featured artifact."""
+    """Get all currently featured artifacts (newest cycle first)."""
     with get_pool().connection() as conn:
-        row = conn.execute(f"""
-          SELECT {_ART_COLS} FROM artifacts WHERE is_featured = TRUE LIMIT 1
-        """).fetchone()
-        if row:
-            return _art_row_to_dict(row)
-        return None
+        rows = conn.execute(f"""
+          SELECT {_ART_COLS} FROM artifacts WHERE is_featured = TRUE
+          ORDER BY cycle DESC NULLS LAST, created_at DESC
+        """).fetchall()
+        return [_art_row_to_dict(r) for r in rows]
 
 
 @app.post("/feature/{artifact_id}")
 def feature_artifact(artifact_id: int):
-    """Mark an artifact as featured (only one at a time)."""
+    """Mark an artifact as featured (additive — multiple can be featured)."""
     with get_pool().connection() as conn:
-        conn.execute("UPDATE artifacts SET is_featured = FALSE WHERE is_featured = TRUE")
         conn.execute("UPDATE artifacts SET is_featured = TRUE WHERE id = %s", [artifact_id])
         conn.commit()
     return {"ok": True, "featured_id": artifact_id}
+
+
+@app.delete("/feature/{artifact_id}")
+def unfeature_artifact(artifact_id: int):
+    """Remove an artifact from the featured list."""
+    with get_pool().connection() as conn:
+        conn.execute("UPDATE artifacts SET is_featured = FALSE WHERE id = %s", [artifact_id])
+        conn.commit()
+    return {"ok": True, "unfeatured_id": artifact_id}
+
+
+@app.patch("/artifacts/{artifact_id}/body")
+def patch_artifact_body(artifact_id: int, body: dict):
+    """Replace the body_markdown of an artifact (operator-only edit, no auth gate yet)."""
+    new_body = body.get("body_markdown")
+    if new_body is None:
+        raise HTTPException(status_code=400, detail="body_markdown required")
+    with get_pool().connection() as conn:
+        result = conn.execute(
+            "UPDATE artifacts SET body_markdown = %s WHERE id = %s",
+            [new_body, artifact_id]
+        )
+        conn.commit()
+    return {"ok": True, "artifact_id": artifact_id}
 
 
 @app.get("/latest-image")

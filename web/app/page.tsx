@@ -15,8 +15,8 @@ export default function Home() {
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [latestImage, setLatestImage] = useState<Artifact | null>(null);
-  const [featuredArtifact, setFeaturedArtifact] = useState<Artifact | null>(null);
-  const [featuredExpanded, setFeaturedExpanded] = useState(true);
+  const [featuredArtifacts, setFeaturedArtifacts] = useState<Artifact[]>([]);
+  const [featuredExpandedId, setFeaturedExpandedId] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const lastSeenTopIdRef = useRef<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
@@ -37,7 +37,15 @@ export default function Home() {
       ]);
       if (featuredRes.ok) {
         const featuredData = await featuredRes.json();
-        if (featuredData && featuredData.id) setFeaturedArtifact(featuredData as Artifact);
+        if (Array.isArray(featuredData) && featuredData.length > 0) {
+          setFeaturedArtifacts(featuredData as Artifact[]);
+          // Auto-expand the first (newest) only on initial load
+          setFeaturedExpandedId((prev) => prev ?? featuredData[0].id);
+        } else if (featuredData && featuredData.id) {
+          // Backward compat with old single-object response
+          setFeaturedArtifacts([featuredData as Artifact]);
+          setFeaturedExpandedId((prev) => prev ?? featuredData.id);
+        }
       }
       if (!stateRes.ok) return;
       const stateData = (await stateRes.json()) as State;
@@ -227,19 +235,22 @@ export default function Home() {
         </a>
       )}
 
-      {/* Featured artifact */}
-      {featuredArtifact && (
+      {/* Featured artifacts (newest cycle first; first one expanded by default) */}
+      {featuredArtifacts.length > 0 && (
         <div className="featured-artifact-section">
           <CrtTerminal
-            artifacts={[featuredArtifact]}
-            expanded={featuredExpanded ? featuredArtifact.id : null}
-            onToggle={() => setFeaturedExpanded(!featuredExpanded)}
+            artifacts={featuredArtifacts}
+            expanded={featuredExpandedId}
+            onToggle={(id) => setFeaturedExpandedId(featuredExpandedId === id ? null : id)}
             formatTime={formatTime}
-            header="FEATURED_ARTIFACT"
+            header={featuredArtifacts.length > 1 ? "FEATURED_ARTIFACTS" : "FEATURED_ARTIFACT"}
+            hideImages
           />
-          <a href={`/archives?artifact=${featuredArtifact.id}`} className="featured-artifact-link">
-            View in archives &rarr;
-          </a>
+          {featuredExpandedId && (
+            <a href={`/archives?artifact=${featuredExpandedId}`} className="featured-artifact-link">
+              View in archives &rarr;
+            </a>
+          )}
         </div>
       )}
 

@@ -9,6 +9,7 @@ type Props = {
   formatTime: (iso: string) => string;
   header?: string;
   initialLoad?: boolean;
+  hideImages?: boolean;
 };
 
 function isSystemArtifact(art: Artifact): boolean {
@@ -49,7 +50,7 @@ function displayTitle(art: Artifact): string {
   return base;
 }
 
-export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS", initialLoad = false }: Props) {
+export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS", initialLoad = false, hideImages = false }: Props) {
   return (
     <div className="crt-terminal">
       <div className="crt-content">
@@ -107,8 +108,8 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
 
                 {showBody && (
                   <div>
-                    {/* Image display */}
-                    {art.image_url && (
+                    {/* Image display (suppressed in featured section since it shows above) */}
+                    {art.image_url && !hideImages && (
                       <div className="artifact-image-container">
                         <img
                           src={art.image_url}

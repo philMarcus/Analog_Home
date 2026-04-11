@@ -9,6 +9,7 @@ import NavBeams from "./components/NavBeams";
 import DaemonTerminal from "./components/DaemonTerminal";
 import VotingBox from "./components/VotingBox";
 import Footer from "./components/Footer";
+import { imageUrl } from "./lib/imageUrl";
 
 export default function Home() {
   const API = useMemo(() => "/api/proxy", []);
@@ -223,7 +224,7 @@ export default function Home() {
       {latestImage && (
         <a href={`/archives?artifact=${latestImage.id}`} className="featured-image-section" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
           <img
-            src={latestImage.image_url}
+            src={imageUrl(latestImage, "full")}
             alt={latestImage.title || "Generated image"}
             className="featured-image"
             loading="lazy"

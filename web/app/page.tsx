@@ -25,6 +25,7 @@ export default function Home() {
   const [latestImage, setLatestImage] = useState<Artifact | null>(null);
   const [featuredArtifacts, setFeaturedArtifacts] = useState<Artifact[]>([]);
   const [featuredExpandedId, setFeaturedExpandedId] = useState<number | null>(null);
+  const featuredInitializedRef = useRef<boolean>(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const lastSeenTopIdRef = useRef<number | null>(null);
   const [temp, setTemp] = useState<number>(0.7);
@@ -56,12 +57,18 @@ export default function Home() {
             .sort((a, b) => (b.cycle ?? 0) - (a.cycle ?? 0));
           const ordered = primary ? [primary, ...rest] : rest;
           setFeaturedArtifacts(ordered);
-          // Auto-expand the primary (or fall back to the first) on initial load only
-          setFeaturedExpandedId((prev) => prev ?? ordered[0]?.id ?? null);
+          // Auto-expand the primary on first load only; preserve user's collapse choice on polls
+          if (!featuredInitializedRef.current) {
+            setFeaturedExpandedId(ordered[0]?.id ?? null);
+            featuredInitializedRef.current = true;
+          }
         } else if (featuredData && featuredData.id) {
           // Backward compat with old single-object response
           setFeaturedArtifacts([featuredData as Artifact]);
-          setFeaturedExpandedId((prev) => prev ?? featuredData.id);
+          if (!featuredInitializedRef.current) {
+            setFeaturedExpandedId(featuredData.id);
+            featuredInitializedRef.current = true;
+          }
         }
       }
       if (!stateRes.ok) return;

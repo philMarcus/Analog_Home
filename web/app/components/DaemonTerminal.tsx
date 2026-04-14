@@ -101,10 +101,15 @@ export default function DaemonTerminal({ apiBase }: Props) {
     return () => { active = false; clearInterval(t); };
   }, [apiBase]);
 
-  // Auto-scroll to bottom when new ticks arrive
+  // Auto-scroll to bottom only when the user is already near the bottom (following
+  // live). If they've scrolled up to read history, leave them alone — every 8s
+  // poll would otherwise yank them back down even when no new content arrived.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 60) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [ticks]);
 

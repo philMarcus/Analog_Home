@@ -41,11 +41,21 @@ function colorForLine(line: string): string {
   // Muse — golden
   if (trimmed.startsWith("MUSE")) return "#ffd700";
   // Accountant — teal
-  if (trimmed.startsWith("[BUDGET]")) return "#88c0d0";
+  if (trimmed.startsWith("[BUDGET]") || trimmed.startsWith("[ACCOUNTANT]")) return "#88c0d0";
   // Compressor — light blue
   if (trimmed.startsWith("[COMPRESS]") || trimmed.startsWith("[POST MEMORY]")) return "#81a1c1";
   // Verification — amber
   if (trimmed.startsWith("[VERIFICATION]")) return "#ebcb8b";
+  // Conscious bracket — neon green (matches CYCLE/ACTION)
+  if (trimmed.startsWith("[CONSCIOUS]")) return "#39ff14";
+  // Fallback / quota — amber
+  if (trimmed.startsWith("[FALLBACK]") || trimmed.startsWith("[QUOTA]")) return "#ebcb8b";
+  // Image generation — pink
+  if (trimmed.startsWith("[IMAGE]")) return "#f778ba";
+  // Saved plans / daemon summaries — lavender (subconscious-adjacent)
+  if (trimmed.startsWith("[SAVED]") || trimmed.startsWith("[DAEMON]")) return "#b48ead";
+  // Dev request — bright pink
+  if (trimmed.startsWith("[DEV REQUEST]")) return "#ff79c6";
   return "rgba(255,255,255,0.5)";
 }
 

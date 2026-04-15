@@ -1,27 +1,59 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Artifact } from "../types";
 import { imageUrl } from "../lib/imageUrl";
 import Footer from "../components/Footer";
 
+const PAGE_SIZE = 24;
+
 export default function Gallery() {
   const API = useMemo(() => "/api/proxy", []);
   const [images, setImages] = useState<Artifact[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // include_images=true so legacy data-URI artifacts still come through.
-    // New artifacts come through regardless (image_url is a small URL string).
-    fetch(`${API}/artifacts?artifact_type=image&limit=50&sort=desc&include_images=true`)
-      .then(async (res) => {
-        if (res.ok) {
-          const data: Artifact[] = await res.json();
-          setImages(data.filter((a) => a.image_url || a.has_image));
-        }
-      })
-      .finally(() => setLoading(false));
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const loadPage = useCallback(async (pageNum: number) => {
+    setLoading(true);
+    try {
+      const offset = (pageNum - 1) * PAGE_SIZE;
+      // include_images=true so legacy data-URI artifacts still come through.
+      // Pagination via offset; total count fetched separately below.
+      const [pageRes, countRes] = await Promise.all([
+        fetch(`${API}/artifacts?artifact_type=image&limit=${PAGE_SIZE}&offset=${offset}&sort=desc&include_images=true`),
+        fetch(`${API}/artifacts/count?artifact_type=image`),
+      ]);
+      if (pageRes.ok) {
+        const data: Artifact[] = await pageRes.json();
+        setImages(data.filter((a) => a.image_url || a.has_image));
+      }
+      if (countRes.ok) {
+        const { count } = await countRes.json();
+        setTotal(typeof count === "number" ? count : 0);
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [API]);
+
+  // Read ?page= from URL on mount, keep URL in sync on changes.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("page");
+    const n = p ? parseInt(p, 10) : 1;
+    setPage(Number.isFinite(n) && n >= 1 ? n : 1);
+  }, []);
+
+  useEffect(() => {
+    loadPage(page);
+    const url = new URL(window.location.href);
+    if (page === 1) url.searchParams.delete("page");
+    else url.searchParams.set("page", String(page));
+    window.history.replaceState({}, "", url.toString());
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page, loadPage]);
 
   function formatTime(iso: string) {
     try {
@@ -31,6 +63,11 @@ export default function Gallery() {
       return iso;
     }
   }
+
+  const goto = (p: number) => {
+    const clamped = Math.max(1, Math.min(totalPages, p));
+    if (clamped !== page) setPage(clamped);
+  };
 
   return (
     <main className="page-container">
@@ -45,7 +82,7 @@ export default function Gallery() {
         </a>
       </div>
 
-      {loading ? (
+      {loading && images.length === 0 ? (
         <div style={{ color: "rgba(255,255,255,0.4)", padding: 40, textAlign: "center" }}>
           Loading gallery...
         </div>
@@ -54,27 +91,41 @@ export default function Gallery() {
           No images generated yet.
         </div>
       ) : (
-        <div className="gallery-grid">
-          {images.map((img) => (
-            <a
-              key={img.id}
-              href={`/archives?artifact=${img.id}`}
-              className="gallery-card"
-            >
-              <img
-                src={imageUrl(img, "thumb")}
-                alt={img.title || "Generated image"}
-                loading="lazy"
-              />
-              <div className="gallery-caption">
-                {img.title || "Untitled"}
-                <div className="gallery-date">
-                  Cycle {img.cycle} &middot; {formatTime(img.created_at)}
+        <>
+          <div className="gallery-grid">
+            {images.map((img) => (
+              <a
+                key={img.id}
+                href={`/archives?artifact=${img.id}`}
+                className="gallery-card"
+              >
+                <img
+                  src={imageUrl(img, "thumb")}
+                  alt={img.title || "Generated image"}
+                  loading="lazy"
+                />
+                <div className="gallery-caption">
+                  {img.title || "Untitled"}
+                  <div className="gallery-date">
+                    Cycle {img.cycle} &middot; {formatTime(img.created_at)}
+                  </div>
                 </div>
-              </div>
-            </a>
-          ))}
-        </div>
+              </a>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <nav className="gallery-pagination" aria-label="Gallery pagination">
+              <button onClick={() => goto(1)} disabled={page === 1}>First</button>
+              <button onClick={() => goto(page - 1)} disabled={page === 1}>&larr; Prev</button>
+              <span className="gallery-pagination-status">
+                Page {page} of {totalPages} &middot; {total} images
+              </span>
+              <button onClick={() => goto(page + 1)} disabled={page === totalPages}>Next &rarr;</button>
+              <button onClick={() => goto(totalPages)} disabled={page === totalPages}>Last</button>
+            </nav>
+          )}
+        </>
       )}
 
       <Footer />

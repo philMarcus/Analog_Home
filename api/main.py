@@ -500,12 +500,21 @@ def get_audience_stats():
 
 
 @app.get("/artifacts/count")
-def get_artifacts_count(run_id: Optional[str] = Query(default=None)):
+def get_artifacts_count(
+    run_id: Optional[str] = Query(default=None),
+    artifact_type: Optional[str] = Query(default=None),
+):
+    conditions = []
+    params: list = []
+    if run_id:
+        conditions.append("run_id = %s")
+        params.append(run_id)
+    if artifact_type:
+        conditions.append("artifact_type = %s")
+        params.append(artifact_type)
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     with get_pool().connection() as conn:
-        if run_id:
-            count = conn.execute("SELECT COUNT(*) FROM artifacts WHERE run_id = %s", [run_id]).fetchone()[0]
-        else:
-            count = conn.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
+        count = conn.execute(f"SELECT COUNT(*) FROM artifacts {where}", params).fetchone()[0]
         return {"count": int(count)}
 
 

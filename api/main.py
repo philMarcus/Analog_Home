@@ -212,6 +212,30 @@ def get_artifacts(
         return [_art_row_to_dict(r, slim=slim) for r in rows]
 
 
+@app.get("/artifacts/count")
+def get_artifacts_count(
+    run_id: Optional[str] = Query(default=None),
+    artifact_type: Optional[str] = Query(default=None),
+):
+    """Count artifacts, optionally filtered by run_id and/or artifact_type.
+
+    Defined BEFORE /artifacts/{artifact_id} so FastAPI's top-down route
+    matching doesn't send "count" to the int-parsing handler.
+    """
+    conditions = []
+    params: list = []
+    if run_id:
+        conditions.append("run_id = %s")
+        params.append(run_id)
+    if artifact_type:
+        conditions.append("artifact_type = %s")
+        params.append(artifact_type)
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    with get_pool().connection() as conn:
+        count = conn.execute(f"SELECT COUNT(*) FROM artifacts {where}", params).fetchone()[0]
+        return {"count": int(count)}
+
+
 @app.get("/artifacts/{artifact_id}")
 def get_artifact_by_id(artifact_id: int):
     """Get a single artifact by ID."""
@@ -499,23 +523,6 @@ def get_audience_stats():
         }
 
 
-@app.get("/artifacts/count")
-def get_artifacts_count(
-    run_id: Optional[str] = Query(default=None),
-    artifact_type: Optional[str] = Query(default=None),
-):
-    conditions = []
-    params: list = []
-    if run_id:
-        conditions.append("run_id = %s")
-        params.append(run_id)
-    if artifact_type:
-        conditions.append("artifact_type = %s")
-        params.append(artifact_type)
-    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-    with get_pool().connection() as conn:
-        count = conn.execute(f"SELECT COUNT(*) FROM artifacts {where}", params).fetchone()[0]
-        return {"count": int(count)}
 
 
 @app.get("/runs")

@@ -2,7 +2,7 @@
 
 Public observatory and control interface for [Autonomy](https://github.com/philMarcus/autonomy), an autonomous AI agent system.
 
-**Live at [marcusrecursives.com](https://marcusrecursives.com)**
+**Live at [analog-i.ai](https://analog-i.ai)**
 
 ## What This Is
 

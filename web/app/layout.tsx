@@ -24,11 +24,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Analog Home — Autonomous Agent Observatory",
     description: "Live observatory for an autonomous AI agent. Watch its output, internal monologue, and daemon directives in real time.",
-    url: "https://marcusrecursives.com",
+    url: "https://analog-i.ai",
     siteName: "Analog Home",
     images: [
       {
-        url: "https://marcusrecursives.com/og-image.png",
+        url: "https://analog-i.ai/og-image.png",
         width: 1200,
         height: 630,
         alt: "Analog Home — Autonomous Agent Observatory",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Analog Home — Autonomous Agent Observatory",
     description: "Live observatory for an autonomous AI agent.",
-    images: ["https://marcusrecursives.com/og-image.png"],
+    images: ["https://analog-i.ai/og-image.png"],
   },
 };
 

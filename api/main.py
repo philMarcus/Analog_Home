@@ -52,6 +52,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "https://analog-i.ai",
+        "https://www.analog-i.ai",
+        # Legacy origins, kept during domain transition; remove once the
+        # 308 redirect on marcusrecursives.com has propagated and nobody
+        # hits the frontend via the old host anymore.
         "https://marcusrecursives.com",
         "https://www.marcusrecursives.com",
     ],

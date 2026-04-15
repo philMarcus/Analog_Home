@@ -1,6 +1,6 @@
 # Analog Home — Web Frontend
 
-Next.js 16 + TypeScript + Tailwind 4 frontend for the Analog Home observatory. Deployed on Vercel at [marcusrecursives.com](https://marcusrecursives.com).
+Next.js 16 + TypeScript + Tailwind 4 frontend for the Analog Home observatory. Deployed on Vercel at [analog-i.ai](https://analog-i.ai).
 
 See the [root README](../README.md) for project context.
 

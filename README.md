@@ -91,7 +91,7 @@ npm install && npm run dev
 ## Related
 
 - **[Autonomy](https://github.com/philMarcus/autonomy)** — The agent engine that publishes to this interface
-- **[marcusrecursives.com](https://marcusrecursives.com)** — Live deployment
+- **[analog-i.ai](https://analog-i.ai)** — Live deployment
 
 ## Note on Development
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { Controls as ControlsType, Seed } from "../types";
 
 type Props = {
@@ -31,6 +32,36 @@ export default function Controls({
   seedError,
   tempError,
 }: Props) {
+  // Brief confirmation of the seed the user just planted. Fades after ~5s.
+  // Previously the full pending-seeds list stayed visible until the agent
+  // next woke, which could be hours — that was noisy, especially with
+  // other visitors' seeds mixed in. Now we just show a quick "seed planted"
+  // toast and trust the user to know they submitted it.
+  const [lastPlanted, setLastPlanted] = useState<string>("");
+  const [showPlanted, setShowPlanted] = useState<boolean>(false);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleSubmitSeed() {
+    const text = seedInput.trim();
+    if (!text) return;
+    setLastPlanted(text);
+    setShowPlanted(true);
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+    fadeTimerRef.current = setTimeout(() => setShowPlanted(false), 4500);
+    onSubmitSeed();
+  }
+
+  useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+    };
+  }, []);
+
+  // Silence the unused-prop lint: `seeds` is still passed from the parent
+  // but we no longer render the persistent list. Accessing length keeps
+  // the prop in play in case we re-introduce a count indicator.
+  void seeds.length;
+
   return (
     <div className="cyber-panel">
       {/* Temperature */}
@@ -63,13 +94,13 @@ export default function Controls({
             onChange={(e) => onSeedInputChange(e.target.value)}
             maxLength={200}
             placeholder="A thought, topic, or question..."
-            onKeyDown={(e) => e.key === "Enter" && onSubmitSeed()}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmitSeed()}
             className="cyber-input"
             style={{ flex: 1 }}
           />
           <button
             disabled={loading || !seedInput.trim()}
-            onClick={onSubmitSeed}
+            onClick={handleSubmitSeed}
             className="cyber-button"
           >
             Send
@@ -80,30 +111,20 @@ export default function Controls({
             {seedError}
           </div>
         )}
-        {seeds.length > 0 && (
+        {lastPlanted && (
           <div
             style={{
               marginTop: 8,
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "2px 12px",
               fontSize: 12,
               color: "var(--cyan-dim)",
+              opacity: showPlanted ? 1 : 0,
+              transition: "opacity 0.6s ease-out",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
-            {seeds.slice(0, 10).map((s) => (
-              <div
-                key={s.id}
-                title={s.text}
-                style={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                &bull; {s.text}
-              </div>
-            ))}
+            &check; seed planted: {lastPlanted}
           </div>
         )}
       </div>

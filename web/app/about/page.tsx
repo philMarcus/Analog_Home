@@ -147,6 +147,19 @@ export default function AboutPage() {
             Analog Home
           </a>
         </p>
+
+        <p style={{ marginTop: 24, marginBottom: 0, fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+          Server costs are real &mdash;{" "}
+          <a
+            href="https://github.com/sponsors/philMarcus"
+            style={{ color: "var(--cyan)", textDecoration: "none" }}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub Sponsors
+          </a>
+          {" "}keeps Analog_I online.
+        </p>
       </div>
 
       <Footer />

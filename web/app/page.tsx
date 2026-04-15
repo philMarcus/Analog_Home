@@ -47,14 +47,14 @@ export default function Home() {
       if (featuredRes.ok) {
         const featuredData = await featuredRes.json();
         if (Array.isArray(featuredData) && featuredData.length > 0) {
-          // Pin PRIMARY_FEATURED_ID to the top; sort the rest by cycle DESC.
-          // The API already returns cycle DESC, but we need to override that
-          // to put a chosen artifact (e.g. an older signature piece) first.
+          // Pin PRIMARY_FEATURED_ID to the top; sort the rest by cycle ASC
+          // so the medal order is: 🥇 primary (oldest signature piece),
+          // 🥈 next-oldest featured, 🥉 newer featured, etc.
           const arts = featuredData as Artifact[];
           const primary = arts.find((a) => a.id === PRIMARY_FEATURED_ID);
           const rest = arts
             .filter((a) => a.id !== PRIMARY_FEATURED_ID)
-            .sort((a, b) => (b.cycle ?? 0) - (a.cycle ?? 0));
+            .sort((a, b) => (a.cycle ?? 0) - (b.cycle ?? 0));
           const ordered = primary ? [primary, ...rest] : rest;
           setFeaturedArtifacts(ordered);
           // Auto-expand the primary on first load only; preserve user's collapse choice on polls
@@ -268,13 +268,8 @@ export default function Home() {
             onToggle={(id) => setFeaturedExpandedId(featuredExpandedId === id ? null : id)}
             formatTime={formatTime}
             header={featuredArtifacts.length > 1 ? "FEATURED_ARTIFACTS" : "FEATURED_ARTIFACT"}
-            hideImages
+            showArchiveLink
           />
-          {featuredExpandedId && (
-            <a href={`/archives?artifact=${featuredExpandedId}`} className="featured-artifact-link">
-              View in archives &rarr;
-            </a>
-          )}
         </div>
       )}
 

@@ -381,6 +381,23 @@ body {
 .featured-artifact-link:hover {
   color: rgba(255, 191, 0, 0.9);
 }
+/* Archive link rendered INSIDE the expanded artifact card (prop: showArchiveLink).
+ * Visually clings to the bottom of the card so it's clearly part of it, not floating. */
+.artifact-archive-link-row {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 191, 0, 0.2);
+  text-align: right;
+}
+.artifact-archive-link {
+  font-size: 12px;
+  color: rgba(255, 191, 0, 0.6);
+  text-decoration: none;
+}
+.artifact-archive-link:hover {
+  color: rgba(255, 191, 0, 1);
+  text-decoration: underline;
+}
 
 /* ── Gallery Grid ── */
 .gallery-grid {

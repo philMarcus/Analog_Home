@@ -11,6 +11,10 @@ type Props = {
   header?: string;
   initialLoad?: boolean;
   hideImages?: boolean;
+  /** Render a "View in archives →" link inside each expanded artifact card.
+   * Used on the home page's featured section so the link is visually inside
+   * the card rather than floating below the terminal. */
+  showArchiveLink?: boolean;
 };
 
 function isSystemArtifact(art: Artifact): boolean {
@@ -51,7 +55,7 @@ function displayTitle(art: Artifact): string {
   return base;
 }
 
-export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS", initialLoad = false, hideImages = false }: Props) {
+export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime, header = "RECENT_ARTIFACTS", initialLoad = false, hideImages = false, showArchiveLink = false }: Props) {
   return (
     <div className="crt-terminal">
       <div className="crt-content">
@@ -166,6 +170,18 @@ export default function CrtTerminal({ artifacts, expanded, onToggle, formatTime,
                           className="artifact-link"
                         >
                           View source &rarr;
+                        </a>
+                      </div>
+                    )}
+
+                    {showArchiveLink && (
+                      <div className="artifact-archive-link-row">
+                        <a
+                          href={`/archives?artifact=${art.id}`}
+                          className="artifact-archive-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View in archives &rarr;
                         </a>
                       </div>
                     )}

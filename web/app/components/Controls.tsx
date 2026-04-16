@@ -124,7 +124,7 @@ export default function Controls({
               whiteSpace: "nowrap",
             }}
           >
-            &check; seed planted: {lastPlanted}
+            ✓ seed planted: {lastPlanted}
           </div>
         )}
       </div>

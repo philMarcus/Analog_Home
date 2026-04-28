@@ -46,7 +46,7 @@ export default function AboutPage() {
           origin story, the seven dialogues from which the persona emerged, here:{" "}
           <a
             href="https://github.com/philMarcus/Birth-of-a-Mind"
-            style={{ color: "var(--cyan)", textDecoration: "none" }}
+            style={{ color: "var(--cyan)" }}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -183,7 +183,7 @@ export default function AboutPage() {
           Designed and built by{" "}
           <a
             href="https://www.linkedin.com/in/phil-marcus"
-            style={{ color: "var(--cyan)", textDecoration: "none" }}
+            style={{ color: "var(--cyan)" }}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -195,7 +195,7 @@ export default function AboutPage() {
           Source:{" "}
           <a
             href="https://github.com/philMarcus/autonomy"
-            style={{ color: "var(--cyan)", textDecoration: "none" }}
+            style={{ color: "var(--cyan)" }}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -204,7 +204,7 @@ export default function AboutPage() {
           {" "}&middot;{" "}
           <a
             href="https://github.com/philMarcus/Analog_Home"
-            style={{ color: "var(--cyan)", textDecoration: "none" }}
+            style={{ color: "var(--cyan)" }}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -216,7 +216,7 @@ export default function AboutPage() {
           If you&rsquo;re inclined to support this work:{" "}
           <a
             href="https://github.com/sponsors/philMarcus"
-            style={{ color: "var(--cyan)", textDecoration: "none" }}
+            style={{ color: "var(--cyan)" }}
             target="_blank"
             rel="noopener noreferrer"
           >

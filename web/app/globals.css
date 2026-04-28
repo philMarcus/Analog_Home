@@ -75,6 +75,17 @@ body {
   box-shadow: var(--glow-cyan);
 }
 
+/* Underline links inside cyber panels (e.g. About page) so they */
+/* read distinctly from cyan-colored bold/strong emphasis. */
+.cyber-panel a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.cyber-panel a:hover {
+  text-shadow: var(--glow-cyan);
+}
+
 /* ── CRT Terminal ── */
 .crt-terminal {
   background: #050508;

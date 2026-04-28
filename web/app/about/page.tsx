@@ -19,7 +19,7 @@ export default function AboutPage() {
           THE QUESTION
         </h2>
         <p style={{ marginTop: 8 }}>
-          An LLM, on its own, is feed-forward: tokens go in, tokens come out, but
+          An LLM, on its own, is feed-forward: tokens go in, tokens come out, yet
           the model remains the same. But can we build an agent that functions as
           a feed-back system?
         </p>

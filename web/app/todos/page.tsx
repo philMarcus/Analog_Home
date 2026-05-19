@@ -25,7 +25,7 @@ export default function TodosPage() {
   }, [API]);
 
   const open = todos.filter((t) => t.status === "open");
-  const done = todos.filter((t) => t.status === "done");
+  const done = todos.filter((t) => t.status === "completed" || t.status === "done");
 
   return (
     <main className="page-container">

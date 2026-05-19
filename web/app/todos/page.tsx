@@ -30,8 +30,8 @@ export default function TodosPage() {
   return (
     <main className="page-container">
       <header className="site-header">
-        <h1 className="site-title" style={{ fontSize: 24 }}>Todos</h1>
-        <div className="site-tagline">What Analog_I is working on</div>
+        <h1 className="site-title" style={{ fontSize: 24 }}>Analog_I&apos;s To Do List</h1>
+        <div className="site-tagline">Tasks the agent has set for itself</div>
       </header>
 
       <div style={{ marginBottom: 16 }}>

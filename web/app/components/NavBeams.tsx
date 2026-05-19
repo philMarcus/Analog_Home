@@ -3,8 +3,8 @@
 const NAV_LINKS = [
   { label: "Archives", href: "/archives" },
   { label: "Gallery", href: "/gallery" },
-  { label: "Todos", href: "/todos" },
-  { label: "Lab", href: "/lab" },
+  { label: "Agent Todos", href: "/todos" },
+  { label: "Agent Lab", href: "/lab" },
   { label: "About", href: "/about" },
   { label: "Source", href: "https://github.com/philMarcus/autonomy" },
 ];

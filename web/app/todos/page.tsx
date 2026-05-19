@@ -6,7 +6,7 @@ import Footer from "../components/Footer";
 type Todo = {
   id: string;
   text: string;
-  status: "open" | "done";
+  status: "open" | "completed" | "done";
   created_cycle: number | null;
   completed_cycle: number | null;
 };

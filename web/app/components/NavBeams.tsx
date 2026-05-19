@@ -3,10 +3,10 @@
 const NAV_LINKS = [
   { label: "Archives", href: "/archives" },
   { label: "Gallery", href: "/gallery" },
-  { label: "Agent Todos", href: "/todos" },
-  { label: "Agent Lab", href: "/lab" },
   { label: "About", href: "/about" },
-  { label: "Source", href: "https://github.com/philMarcus/autonomy" },
+  { label: "Source Code", href: "https://github.com/philMarcus/autonomy" },
+  { label: "Agent To-do List", href: "/todos" },
+  { label: "Agent Experiments", href: "/lab" },
 ];
 
 export default function NavBeams() {

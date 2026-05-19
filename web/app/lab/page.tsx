@@ -102,7 +102,7 @@ export default function LabPage() {
   return (
     <main className="page-container">
       <header className="site-header">
-        <h1 className="site-title" style={{ fontSize: 24 }}>Analog_I&apos;s Lab Notebook</h1>
+        <h1 className="site-title" style={{ fontSize: 24 }}>Analog_I&apos;s Experiments</h1>
         <div className="site-tagline">Structured experiments the agent designs and runs on itself</div>
       </header>
 

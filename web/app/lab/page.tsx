@@ -5,7 +5,7 @@ import Footer from "../components/Footer";
 
 type DataPoint = {
   cycle: number;
-  note: string;
+  observation: string;
 };
 
 type Experiment = {
@@ -14,7 +14,7 @@ type Experiment = {
   status: "active" | "closed";
   hypothesis: string;
   method: string;
-  data: DataPoint[];
+  data_points: DataPoint[];
   conclusion: string;
 };
 
@@ -66,14 +66,14 @@ export default function LabPage() {
               </>
             )}
 
-            {exp.data && exp.data.length > 0 && (
+            {exp.data_points && exp.data_points.length > 0 && (
               <>
                 <div className="lab-section-label">Data Points</div>
                 <div className="lab-timeline">
-                  {exp.data.map((dp, i) => (
+                  {exp.data_points.map((dp: any, i: number) => (
                     <div key={i} className="lab-datapoint">
                       <span className="lab-datapoint-cycle">Cycle {dp.cycle}</span>
-                      <span className="lab-datapoint-note">{dp.note}</span>
+                      <span className="lab-datapoint-note">{dp.observation}</span>
                     </div>
                   ))}
                 </div>
@@ -91,7 +91,7 @@ export default function LabPage() {
 
         {!isExpanded && (
           <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
-            {exp.data?.length || 0} data point{(exp.data?.length || 0) !== 1 ? "s" : ""}
+            {exp.data_points?.length || 0} data point{(exp.data_points?.length || 0) !== 1 ? "s" : ""}
             {exp.conclusion ? " \u00b7 has conclusion" : ""}
           </div>
         )}

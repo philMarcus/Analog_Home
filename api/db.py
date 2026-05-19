@@ -133,6 +133,17 @@ def init_db() -> None:
             ON daemon_ticks(created_at DESC)
         """)
 
+        # Agent state (todo list, lab experiments, etc.)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS agent_state (
+                brain VARCHAR(100),
+                key VARCHAR(100),
+                data JSONB NOT NULL DEFAULT '[]',
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (brain, key)
+            )
+        """)
+
         # Ensure exactly one controls row (id=1)
         conn.execute("""
             INSERT INTO controls (id, temperature, vote_1, vote_2, vote_3,

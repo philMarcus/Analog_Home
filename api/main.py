@@ -84,6 +84,44 @@ def healthz():
     return {"ok": True}
 
 
+# ── Agent State (todos, experiments) ──────────────────────────────
+# Placed before any /{param} routes to avoid path conflicts.
+
+_VALID_STATE_KEYS = {"todos", "experiments"}
+
+
+@app.get("/agent-state/{key}")
+def get_agent_state(key: str, brain: str = Query(default="ANALOG_I")):
+    """Frontend reads agent state (todos or experiments)."""
+    if key not in _VALID_STATE_KEYS:
+        raise HTTPException(status_code=400, detail=f"Invalid key: {key}")
+    with get_pool().connection() as conn:
+        row = conn.execute(
+            "SELECT data FROM agent_state WHERE brain = %s AND key = %s",
+            [brain, key],
+        ).fetchone()
+    return row[0] if row else []
+
+
+@app.post("/agent-state/{key}")
+def post_agent_state(key: str, body: dict):
+    """Agent pushes updated state (todos or experiments)."""
+    if key not in _VALID_STATE_KEYS:
+        raise HTTPException(status_code=400, detail=f"Invalid key: {key}")
+    brain = body.get("brain", "ANALOG_I")
+    data = body.get("data", [])
+    with get_pool().connection() as conn:
+        conn.execute(
+            """INSERT INTO agent_state (brain, key, data, updated_at)
+               VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+               ON CONFLICT (brain, key) DO UPDATE
+               SET data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP""",
+            [brain, key, json.dumps(data)],
+        )
+        conn.commit()
+    return {"ok": True}
+
+
 _ART_COLS = """id, created_at, brain, cycle, artifact_type,
              title, body_markdown, monologue_public,
              channel, source_platform, source_id, source_parent_id, source_url,

@@ -14,6 +14,10 @@ export default function Footer() {
       <span className="footer-sep">·</span>
       <a href="/gallery" className="footer-link">Gallery</a>
       <span className="footer-sep">·</span>
+      <a href="/todos" className="footer-link">Todos</a>
+      <span className="footer-sep">·</span>
+      <a href="/lab" className="footer-link">Lab</a>
+      <span className="footer-sep">·</span>
       <a href="/about" className="footer-link">About</a>
       <span className="footer-sep">·</span>
       <a

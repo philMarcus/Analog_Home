@@ -3,6 +3,8 @@
 const NAV_LINKS = [
   { label: "Archives", href: "/archives" },
   { label: "Gallery", href: "/gallery" },
+  { label: "Todos", href: "/todos" },
+  { label: "Lab", href: "/lab" },
   { label: "About", href: "/about" },
   { label: "Source", href: "https://github.com/philMarcus/autonomy" },
 ];
@@ -11,7 +13,7 @@ export default function NavBeams() {
   const cx = 450;  // crystal center = 50% of viewBox 900
   const cy = 50;
   const beamLen = 300;
-  const spread = 28;
+  const spread = 22;
   const count = NAV_LINKS.length;
 
   return (

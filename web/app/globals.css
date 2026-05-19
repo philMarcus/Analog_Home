@@ -778,6 +778,147 @@ body {
   opacity: 0.6;
 }
 
+/* ── Todo List ── */
+.todo-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0, 255, 213, 0.08);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.todo-item:last-child {
+  border-bottom: none;
+}
+.todo-bullet {
+  color: var(--cyan);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.todo-text {
+  flex: 1;
+  color: var(--text);
+}
+.todo-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.todo-done .todo-bullet {
+  color: var(--text-dim);
+}
+.todo-done .todo-text {
+  color: var(--text-dim);
+  text-decoration: line-through;
+  text-decoration-color: rgba(102, 102, 102, 0.4);
+}
+
+/* ── Lab Notebook ── */
+.lab-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.lab-card:hover {
+  border-color: rgba(0, 255, 213, 0.5);
+  background: rgba(0, 255, 213, 0.03);
+}
+.lab-card.expanded {
+  border-color: var(--cyan-dim);
+  background: rgba(0, 255, 213, 0.04);
+  cursor: default;
+}
+.lab-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.lab-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cyan);
+  letter-spacing: 0.5px;
+}
+.lab-status-badge {
+  display: inline-block;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+.lab-status-badge.active {
+  color: var(--green);
+  border: 1px solid rgba(57, 255, 20, 0.4);
+  text-shadow: 0 0 4px rgba(57, 255, 20, 0.3);
+}
+.lab-status-badge.closed {
+  color: var(--text-dim);
+  border: 1px solid rgba(102, 102, 102, 0.3);
+}
+.lab-hypothesis {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  font-style: italic;
+}
+.lab-details {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 255, 213, 0.1);
+}
+.lab-section-label {
+  font-size: 11px;
+  color: var(--cyan-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 14px 0 6px;
+}
+.lab-section-label:first-child {
+  margin-top: 0;
+}
+.lab-section-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.lab-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.lab-datapoint {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 255, 213, 0.06);
+  font-size: 13px;
+}
+.lab-datapoint:last-child {
+  border-bottom: none;
+}
+.lab-datapoint-cycle {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--cyan-dim);
+  white-space: nowrap;
+  min-width: 72px;
+}
+.lab-datapoint-note {
+  color: var(--text);
+  line-height: 1.5;
+}
+
 /* "View full size" link under expanded artifact images */
 .artifact-full-image-link {
   display: block;

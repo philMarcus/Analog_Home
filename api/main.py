@@ -122,6 +122,41 @@ def post_agent_state(key: str, body: dict):
     return {"ok": True}
 
 
+@app.get("/artifacts/search")
+def search_artifacts(
+    q: str = Query(..., min_length=1, max_length=200),
+    run_id: Optional[str] = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    """Full-text search across all artifacts (title + body). Database does the
+    filtering so we can search 1000+ artifacts without fetching them all."""
+    with get_pool().connection() as conn:
+        conditions = ["(title ILIKE %s OR body_markdown ILIKE %s)"]
+        params: list = [f"%{q}%", f"%{q}%"]
+        if run_id:
+            conditions.append("run_id = %s")
+            params.append(run_id)
+        where = "WHERE " + " AND ".join(conditions)
+        params.append(limit)
+        rows = conn.execute(f"""
+            SELECT id, created_at, cycle, artifact_type, title,
+                   SUBSTRING(body_markdown FROM 1 FOR 1000) AS body_preview
+            FROM artifacts {where}
+            ORDER BY created_at DESC LIMIT %s
+        """, params).fetchall()
+    return [
+        {
+            "id": int(r[0]),
+            "created_at": str(r[1]),
+            "cycle": r[2],
+            "artifact_type": r[3] or "",
+            "title": r[4] or "",
+            "body_preview": r[5] or "",
+        }
+        for r in rows
+    ]
+
+
 _ART_COLS = """id, created_at, brain, cycle, artifact_type,
              title, body_markdown, monologue_public,
              channel, source_platform, source_id, source_parent_id, source_url,

@@ -16,6 +16,7 @@ type Experiment = {
   method: string;
   data_points: DataPoint[];
   conclusion: string;
+  review_at_cycle: number | null;
 };
 
 export default function LabPage() {
@@ -55,15 +56,24 @@ export default function LabPage() {
           </span>
           <span className="lab-name">{exp.name}</span>
         </div>
-        <div className="lab-hypothesis">{exp.hypothesis}</div>
-
         {isExpanded && (
           <div className="lab-details" onClick={(e) => e.stopPropagation()}>
+            {exp.hypothesis && (
+              <>
+                <div className="lab-section-label">Hypothesis</div>
+                <div className="lab-section-text">{exp.hypothesis}</div>
+              </>
+            )}
             {exp.method && (
               <>
                 <div className="lab-section-label">Method</div>
                 <div className="lab-section-text">{exp.method}</div>
               </>
+            )}
+            {exp.review_at_cycle != null && (
+              <div className="lab-section-label" style={{ marginTop: 8 }}>
+                Review at cycle {exp.review_at_cycle}
+              </div>
             )}
 
             {exp.data_points && exp.data_points.length > 0 && (

@@ -31,6 +31,8 @@ function colorForLine(line: string): string {
   if (trimmed.startsWith("(no drafts)")) return "rgba(255,166,87,0.5)";
   // Seeker — pink
   if (trimmed.startsWith("SEEKER") || trimmed.startsWith("Searched") || trimmed.startsWith("Next:")) return "#f778ba";
+  // Librarian — cyan
+  if (trimmed.startsWith("LIBRARIAN")) return "#88c0d0";
   // Seeds — green
   if (trimmed.startsWith("SEED:")) return "#39ff14";
   // Conscious events — green

@@ -17,6 +17,10 @@ import { imageUrl } from "./lib/imageUrl";
 // id to change which artifact leads the home page.
 const PRIMARY_FEATURED_ID = 1775696507944; // "The Interval" (cycle 4)
 
+// Pinned featured image — shown in the featured image slot instead of the
+// most recent image. Set to null to go back to featuring the latest image.
+const PINNED_IMAGE_ID: number | null = 1777724609983; // "The Architecture Trying to Measure the Room" (cycle 285)
+
 export default function Home() {
   const API = useMemo(() => "/api/proxy", []);
   const [controls, setControls] = useState<ControlsType | null>(null);
@@ -98,9 +102,12 @@ export default function Home() {
           setExpanded(topId);
           lastSeenTopIdRef.current = topId;
         }
-        // Find latest image via dedicated endpoint (list responses omit image data to save bandwidth)
+        // Find featured image via dedicated endpoint (list responses omit image data to save bandwidth):
+        // the pinned artifact if one is set, otherwise the latest image.
         try {
-          const imgRes = await fetch(`${API}/latest-image`);
+          const imgRes = await fetch(
+            PINNED_IMAGE_ID !== null ? `${API}/artifacts/${PINNED_IMAGE_ID}` : `${API}/latest-image`
+          );
           if (imgRes.ok) {
             const imgData = await imgRes.json();
             if (imgData && imgData.image_url) setLatestImage(imgData as Artifact);
@@ -242,7 +249,7 @@ export default function Home() {
         />
       </div>
 
-      {/* Featured image: most recent image */}
+      {/* Featured image: pinned image, or most recent image if none pinned */}
       {latestImage && (
         <a href={`/archives?artifact=${latestImage.id}`} className="featured-image-section" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
           <img

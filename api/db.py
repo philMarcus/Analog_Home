@@ -24,6 +24,54 @@ MAX_VOTES_PER_IP = 5        # per-IP vote cap, resets each trajectory cycle
 
 _pool: ConnectionPool | None = None
 
+# Semantic recall (pgvector). Dimension must match the agent's embedder
+# (gemini-embedding-2 at output_dimensionality=768). True once the extension
+# and table exist; the recall endpoints answer 503 otherwise.
+EMBEDDING_DIM = 768
+EMBEDDINGS_ENABLED = False
+
+
+def _init_embeddings() -> None:
+    """Create the pgvector extension + embeddings table. Best-effort: a host
+    without pgvector must not stop the rest of the API from starting."""
+    global EMBEDDINGS_ENABLED
+    try:
+        with _pool.connection() as conn:
+            conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            conn.commit()
+    except Exception as e:  # noqa: BLE001
+        print(f"[db] pgvector unavailable, recall disabled: {e}")
+        return
+    with _pool.connection() as conn:
+        conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                id BIGSERIAL PRIMARY KEY,
+                artifact_id BIGINT REFERENCES artifacts(id) ON DELETE CASCADE,
+                source_ref VARCHAR(160) NOT NULL DEFAULT '',
+                kind VARCHAR(32) NOT NULL,
+                brain VARCHAR DEFAULT '',
+                run_id VARCHAR DEFAULT '',
+                cycle INTEGER,
+                text TEXT NOT NULL,
+                model VARCHAR(64) NOT NULL,
+                embedding vector({EMBEDDING_DIM}) NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # One row per (document, kind). Non-artifact docs (memory notes) use
+        # artifact_id NULL + source_ref, hence the COALESCE in the key.
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_embeddings_doc
+            ON embeddings ((COALESCE(artifact_id, 0)), source_ref, kind)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_embeddings_hnsw
+            ON embeddings USING hnsw (embedding vector_cosine_ops)
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_artifact ON embeddings (artifact_id)")
+        conn.commit()
+    EMBEDDINGS_ENABLED = True
+
 
 def init_db() -> None:
     """Create tables (if needed) and open the connection pool."""
@@ -153,6 +201,8 @@ def init_db() -> None:
         """, [DEFAULT_TEMPERATURE, *DEFAULT_VOTE_LABELS])
 
         conn.commit()
+
+    _init_embeddings()
 
 
 def get_pool() -> ConnectionPool:

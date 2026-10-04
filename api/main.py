@@ -7,8 +7,10 @@ from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
+import db as _db
 from db import init_db, get_pool, close, effective_temperature, MAX_SEEDS_RETURNED, MAX_SEEDS, MAX_VOTES_PER_IP
-from models import ArtifactOut, VoteRequest, SeedRequest, SetTrajectoryRequest, StateOut
+from models import (ArtifactOut, VoteRequest, SeedRequest, SetTrajectoryRequest, StateOut,
+                    EmbeddingsUpsertRequest, RecallRequest)
 from pydantic import BaseModel, Field
 
 
@@ -387,6 +389,179 @@ def patch_artifact_body(artifact_id: int, body: dict):
         )
         conn.commit()
     return {"ok": True, "artifact_id": artifact_id}
+
+
+# ---------------------------------------------------------------------------
+# Semantic recall (pgvector). The agent computes embeddings (it holds the
+# Gemini key); the API only stores vectors and runs the nearest-neighbour
+# query, so Postgres stays reachable through the API alone.
+# ---------------------------------------------------------------------------
+
+# Artifact types worth recalling. System chatter (cycle reports, directives,
+# controls updates, run starts, tagline updates) is excluded by default.
+_RECALL_DEFAULT_TYPES = ["post", "comment", "reply", "image", "dream",
+                         "system_kernel_update", "system_dev_request"]
+_EMBED_KINDS = {"artifact_body": "body_markdown", "artifact_monologue": "monologue_public"}
+
+
+def _require_embeddings():
+    if not _db.EMBEDDINGS_ENABLED:
+        raise HTTPException(status_code=503, detail="Semantic recall is not available (pgvector missing)")
+
+
+def _vec_literal(values: List[float]) -> str:
+    if len(values) != _db.EMBEDDING_DIM:
+        raise HTTPException(status_code=400,
+                            detail=f"embedding must have {_db.EMBEDDING_DIM} dims, got {len(values)}")
+    return "[" + ",".join(f"{float(v):.7g}" for v in values) + "]"
+
+
+@app.get("/embeddings/pending")
+def get_embeddings_pending(
+    kinds: str = Query(default="artifact_body,artifact_monologue"),
+    artifact_types: str = Query(default=",".join(_RECALL_DEFAULT_TYPES)),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """Artifacts that still lack an embedding for at least one requested kind.
+
+    Returns the text fields so the caller can embed without a second fetch,
+    plus `missing_kinds` per row. Oldest first, so a backfill walks history
+    in order and the agent's per-cycle sync picks up its own new artifacts.
+    """
+    _require_embeddings()
+    kind_list = [k.strip() for k in kinds.split(",") if k.strip() in _EMBED_KINDS]
+    if not kind_list:
+        raise HTTPException(status_code=400, detail=f"kinds must be among {sorted(_EMBED_KINDS)}")
+    type_list = [t.strip() for t in artifact_types.split(",") if t.strip()]
+    missing_clauses = []
+    for k in kind_list:
+        col = _EMBED_KINDS[k]
+        missing_clauses.append(
+            f"(COALESCE({col}, '') <> '' AND NOT EXISTS "
+            f"(SELECT 1 FROM embeddings e WHERE e.artifact_id = a.id AND e.kind = '{k}'))"
+        )
+    with get_pool().connection() as conn:
+        rows = conn.execute(f"""
+            SELECT a.id, a.created_at, a.brain, a.cycle, a.artifact_type, a.title,
+                   a.body_markdown, a.monologue_public, a.run_id,
+                   {", ".join(f"EXISTS (SELECT 1 FROM embeddings e WHERE e.artifact_id = a.id AND e.kind = '{k}')" for k in kind_list)}
+            FROM artifacts a
+            WHERE a.artifact_type = ANY(%s) AND ({" OR ".join(missing_clauses)})
+            ORDER BY a.created_at ASC
+            LIMIT %s
+        """, [type_list, limit]).fetchall()
+        remaining = conn.execute(f"""
+            SELECT COUNT(*) FROM artifacts a
+            WHERE a.artifact_type = ANY(%s) AND ({" OR ".join(missing_clauses)})
+        """, [type_list]).fetchone()[0]
+    out = []
+    for r in rows:
+        have = r[9:9 + len(kind_list)]
+        missing = [k for k, h in zip(kind_list, have)
+                   if not h and (r[6] if k == "artifact_body" else r[7])]
+        out.append({
+            "id": int(r[0]), "created_at": str(r[1]), "brain": r[2] or "", "cycle": r[3],
+            "artifact_type": r[4] or "", "title": r[5] or "",
+            "body_markdown": r[6] or "", "monologue_public": r[7] or "",
+            "run_id": r[8] or "", "missing_kinds": missing,
+        })
+    return {"items": out, "remaining": int(remaining)}
+
+
+@app.post("/embeddings")
+def upsert_embeddings(req: EmbeddingsUpsertRequest):
+    """Bulk upsert of embedded documents (one row per document + kind)."""
+    _require_embeddings()
+    if not req.items:
+        return {"ok": True, "upserted": 0}
+    with get_pool().connection() as conn:
+        for it in req.items:
+            if it.artifact_id is None and not it.source_ref:
+                raise HTTPException(status_code=400, detail="artifact_id or source_ref required")
+            conn.execute("""
+                INSERT INTO embeddings (artifact_id, source_ref, kind, brain, run_id, cycle, text, model, embedding)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector)
+                ON CONFLICT ((COALESCE(artifact_id, 0)), source_ref, kind) DO UPDATE SET
+                    brain = EXCLUDED.brain, run_id = EXCLUDED.run_id, cycle = EXCLUDED.cycle,
+                    text = EXCLUDED.text, model = EXCLUDED.model, embedding = EXCLUDED.embedding,
+                    created_at = CURRENT_TIMESTAMP
+            """, [it.artifact_id, it.source_ref, it.kind, it.brain, it.run_id, it.cycle,
+                  it.text, it.model, _vec_literal(it.embedding)])
+        conn.commit()
+    return {"ok": True, "upserted": len(req.items)}
+
+
+@app.post("/recall")
+def recall(req: RecallRequest):
+    """Nearest-neighbour search (cosine) over the embeddings, joined to artifacts."""
+    _require_embeddings()
+    vec = _vec_literal(req.embedding)
+    conditions = []
+    params: list = [vec]
+    if req.kinds:
+        conditions.append("e.kind = ANY(%s)")
+        params.append(req.kinds)
+    if req.artifact_types:
+        conditions.append("(a.artifact_type = ANY(%s) OR e.artifact_id IS NULL)")
+        params.append(req.artifact_types)
+    if req.run_id:
+        conditions.append("e.run_id = %s")
+        params.append(req.run_id)
+    if req.exclude_run_id:
+        conditions.append("e.run_id <> %s")
+        params.append(req.exclude_run_id)
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    params.extend([vec, req.k * 3])  # over-fetch, then apply min_score + dedupe per artifact
+    with get_pool().connection() as conn:
+        rows = conn.execute(f"""
+            SELECT e.id, e.artifact_id, e.source_ref, e.kind, e.brain, e.run_id, e.cycle,
+                   LEFT(e.text, %s) AS snippet, 1 - (e.embedding <=> %s::vector) AS score,
+                   a.title, a.artifact_type, a.created_at
+            FROM embeddings e
+            LEFT JOIN artifacts a ON a.id = e.artifact_id
+            {where}
+            ORDER BY e.embedding <=> %s::vector
+            LIMIT %s
+        """, [req.snippet_chars] + params).fetchall()
+    out = []
+    for r in rows:
+        score = float(r[8])
+        if score < req.min_score:
+            continue
+        out.append({
+            "embedding_id": int(r[0]),
+            "artifact_id": int(r[1]) if r[1] is not None else None,
+            "source_ref": r[2] or "", "kind": r[3], "brain": r[4] or "",
+            "run_id": r[5] or "", "cycle": r[6], "snippet": r[7] or "",
+            "score": round(score, 4),
+            "title": r[9] or "", "artifact_type": r[10] or "",
+            "created_at": str(r[11]) if r[11] is not None else "",
+        })
+        if len(out) >= req.k:
+            break
+    return {"results": out}
+
+
+@app.get("/embeddings/stats")
+def embeddings_stats():
+    """Counts by kind and by run — lets the agent/dashboard see recall coverage."""
+    _require_embeddings()
+    with get_pool().connection() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
+        by_kind = conn.execute(
+            "SELECT kind, COUNT(*) FROM embeddings GROUP BY kind ORDER BY kind").fetchall()
+        by_run = conn.execute("""
+            SELECT run_id, COUNT(*) FROM embeddings GROUP BY run_id ORDER BY COUNT(*) DESC LIMIT 20
+        """).fetchall()
+        models = conn.execute(
+            "SELECT model, COUNT(*) FROM embeddings GROUP BY model").fetchall()
+    return {
+        "total": int(total),
+        "by_kind": {k: int(n) for k, n in by_kind},
+        "by_run": {(r or ""): int(n) for r, n in by_run},
+        "models": {m: int(n) for m, n in models},
+        "dim": _db.EMBEDDING_DIM,
+    }
 
 
 @app.get("/latest-image")

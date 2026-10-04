@@ -67,3 +67,33 @@ class StateOut(BaseModel):
     artifact: Optional[ArtifactOut]
     controls: ControlsOut
     seeds: List[SeedOut]
+
+# --- Semantic recall (pgvector) ---
+
+class EmbeddingItem(BaseModel):
+    """One embedded document: an artifact field or a non-artifact doc (memory note)."""
+    artifact_id: Optional[int] = None
+    source_ref: str = Field(default="", max_length=160)
+    kind: str = Field(max_length=32)           # artifact_body | artifact_monologue | memory_note | post_memory
+    brain: str = Field(default="", max_length=100)
+    run_id: str = Field(default="", max_length=64)
+    cycle: Optional[int] = None
+    text: str
+    model: str = Field(max_length=64)
+    embedding: List[float]
+
+
+class EmbeddingsUpsertRequest(BaseModel):
+    items: List[EmbeddingItem] = Field(max_length=200)
+
+
+class RecallRequest(BaseModel):
+    embedding: List[float]
+    k: int = Field(default=8, ge=1, le=50)
+    kinds: List[str] = Field(default_factory=list)
+    artifact_types: List[str] = Field(default_factory=list)
+    run_id: str = ""              # restrict to one run
+    exclude_run_id: str = ""      # e.g. the current run, to recall only previous lives
+    min_score: float = Field(default=0.0, ge=-1.0, le=1.0)
+    snippet_chars: int = Field(default=600, ge=50, le=4000)
+
